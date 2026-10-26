@@ -10,6 +10,7 @@ import os
 import pathlib
 import re
 import sys
+import urllib.error
 import urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -25,8 +26,13 @@ def api(path, key):
         headers["Authorization"] = "Bearer " + key
     else:
         url += ("&" if "?" in url else "?") + "api_key=" + key
-    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
-        return json.load(r)
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=30) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code == 401:
+            sys.exit("TMDB rejected the key (401). Copy the \"API Key\" from themoviedb.org/settings/api.")
+        raise
 
 
 def download(url, dest):

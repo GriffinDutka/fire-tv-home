@@ -48,4 +48,8 @@ The home screen shows Chicago weather from [Open-Meteo](https://open-meteo.com) 
 
 **Screensaver:** `Gargantua` is a DreamService that renders Interstellar's black hole (WebGL ray-bent accretion disk, `assets/screensaver.html`) with a terminal readout of the date and Chicago weather. `install-launcher.sh` sets it as the screensaver; `restore.sh` puts Amazon's back.
 
-**Film stills:** every 3 minutes the screensaver plays 8 stills (20s each, slow zoom) before returning to Gargantua. List films in `stills/films.txt`, then `TMDB_API_KEY=... ./scripts/stills.sh` downloads text-free 4K backdrops via the TMDB API and copies them to the TV. Any `.jpg` dropped into `stills/images/` is included too. Images are gitignored. `./scripts/stills.sh --clear` removes them from the TV.
+**Screensaver cycle:** Gargantua (3 min) → a 4K Apple aerial → 8 film stills (20s each) → another aerial → repeat. Anything not on the TV is skipped.
+
+- **Aerials:** Apple TV's 4K SDR HEVC aerials (ISS night flyovers, aurora, cities, landscapes). Pick clips in `stills/aerials.txt` (`python3 scripts/fetch_aerials.py --list` shows the catalog). They play in a native VideoView under the transparent WebView, since the WebView can't decode HEVC `.mov` and Android 9 doesn't trust Apple's CDN certificate, so the Mac downloads them and pushes them.
+- **Film stills:** text-free 4K backdrops for the films in `stills/films.txt`, via the TMDB API (`TMDB_API_KEY`, free). Slow zoom, crossfades, film grain and a drifting light leak. Any `.jpg` dropped into `stills/images/` is included.
+- `./scripts/stills.sh` downloads whatever's missing and syncs both folders to the TV; `--clear` removes them. Media is gitignored.

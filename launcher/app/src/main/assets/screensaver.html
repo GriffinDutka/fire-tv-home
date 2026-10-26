@@ -6,10 +6,20 @@
 <title>Gargantua</title>
 <style>
 @font-face { font-family: 'JetBrains Mono'; src: url(fonts/JetBrainsMono.woff2) format('woff2'); }
-html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-#sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+/* Page is transparent so the native aerial video behind it shows through. */
+#sky { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; transition: opacity 2.5s ease; }
+body.video #sky { opacity: 0; }
 .still { position: absolute; inset: 0; background: #000 center / cover no-repeat; opacity: 0; will-change: opacity, transform; }
-#shade { position: absolute; inset: 0; z-index: 3; opacity: 0; transition: opacity 2.5s ease;
+#grain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; opacity: 0; mix-blend-mode: overlay; transition: opacity 2.5s ease; }
+#leak { position: absolute; inset: -20%; z-index: 3; opacity: 0; mix-blend-mode: screen; transition: opacity 2.5s ease;
+  background: radial-gradient(40% 50% at 50% 50%, rgba(255,150,60,.22), rgba(255,90,40,.08) 45%, rgba(0,0,0,0) 70%);
+  animation: leak 26s ease-in-out infinite alternate; }
+@keyframes leak { from { transform: translate(-30%, 10%); } to { transform: translate(35%, -12%); } }
+body.stills #grain { opacity: .09; }
+body.stills #leak { opacity: 1; }
+body.stills #shade, body.video #shade { opacity: 1; }
+#shade { position: absolute; inset: 0; z-index: 4; opacity: 0; transition: opacity 2.5s ease;
   background: linear-gradient(to top right, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 32%, rgba(0,0,0,0) 55%); }
 #term {
   position: absolute; left: 4.5vw; bottom: 6vh; max-width: 60vw; z-index: 5;
@@ -27,6 +37,8 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 <canvas id="sky"></canvas>
 <div class="still" id="stillA"></div>
 <div class="still" id="stillB"></div>
+<canvas id="grain"></canvas>
+<div id="leak"></div>
 <div id="shade"></div>
 <div id="term"></div>
 
@@ -127,7 +139,7 @@ void main() {
   var scale = 0.5;   // render resolution vs. CSS pixels; adapts to the GPU
   var start = performance.now(), last = start, slow = 0, fast = 0;
   var prog, uRes, uT;
-  var running = true;   // false while a still covers the screen, so the GPU rests
+  var running = true;   // false while a still or video covers the screen, so the GPU rests
 
   function size() {
     var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
@@ -188,25 +200,60 @@ void main() {
     requestAnimationFrame(frame);
   }
 
-  // ---- Film stills ----
-  // Gargantua for a few minutes, then a run of stills with a slow Ken Burns drift, then back.
-  // Stills live on the TV (scripts/stills.sh pushes them); none = black hole only.
-  var HOLE_MS = 3 * 60 * 1000, STILL_MS = 20 * 1000, PER_ROUND = 8, FADE_MS = 2500;
-  var STILLS = [];
-  try { STILLS = JSON.parse(window.Stills ? Stills.list() : '[]'); } catch (e) {}
+  // ---- Modes ----
+  // Cycle: Gargantua → a 4K Apple aerial → film stills → another aerial → …
+  // Aerials and stills live on the TV (scripts/stills.sh pushes them); whatever's missing is skipped.
+  // Aerials play in a native VideoView behind this (transparent) page, so the terminal stays on top.
+  var HOLE_MS = 3 * 60 * 1000, STILL_MS = 20 * 1000, PER_ROUND = 8, FADE_MS = 2500, AERIAL_MAX_MS = 8 * 60 * 1000;
+  var CYCLE = ['hole', 'aerial', 'stills', 'aerial'];
+  function load(bridge) { try { return JSON.parse(bridge ? bridge.list() : '[]'); } catch (e) { return []; } }
+  var STILLS = load(window.Stills), AERIALS = load(window.Aerials);
   var layers = [document.getElementById('stillA'), document.getElementById('stillB')];
-  var shade = document.getElementById('shade');
-  var front = 0, queue = [], current = null, roundTimer;
+  var body = document.body;
+  var front = 0, step = -1, mode = null, modeTimer, current = null;
+  var stillQueue = [], aerialQueue = [];
   var ORIGINS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%', '50% 50%', '30% 60%', '70% 40%'];
 
-  function nextStill() {
+  // Re-reads the folder whenever a queue runs out, so newly pushed media shows up without a restart.
+  function next(queue, bridge) {
     if (!queue.length) {
-      queue = STILLS.slice();
-      for (var i = queue.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = queue[i]; queue[i] = queue[j]; queue[j] = t; }
+      var q = load(bridge);
+      for (var i = q.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = q[i]; q[i] = q[j]; q[j] = t; }
+      Array.prototype.push.apply(queue, q);
     }
     return queue.shift();
   }
 
+  function nextMode() {
+    clearTimeout(modeTimer);
+    if (!stillQueue.length) STILLS = load(window.Stills);
+    if (!aerialQueue.length) AERIALS = load(window.Aerials);
+    for (var i = 0; i < CYCLE.length; i++) {
+      step = (step + 1) % CYCLE.length;
+      var m = CYCLE[step];
+      if (m === 'hole' || (m === 'stills' && STILLS.length) || (m === 'aerial' && AERIALS.length)) return enter(m);
+    }
+  }
+
+  function enter(m) {
+    var prev = mode;
+    mode = m;
+    if (prev === 'aerial' && m !== 'aerial') leaveAerial();
+    if (prev === 'stills' && m !== 'stills') hideStills();
+    if (m === 'hole') {
+      current = null;
+      resumeHole();
+      render();
+      modeTimer = setTimeout(nextMode, HOLE_MS);
+    } else if (m === 'stills') {
+      body.classList.add('stills');
+      stillsRound(PER_ROUND);
+    } else {
+      playAerial();
+    }
+  }
+
+  // Stills: slow Ken Burns zoom, crossfades, film grain and a drifting light leak.
   function showStill(still, done) {
     var img = new Image();
     img.onload = function () {
@@ -220,9 +267,8 @@ void main() {
       layer.style.transition = 'opacity ' + FADE_MS + 'ms ease, transform ' + (STILL_MS + FADE_MS * 2) + 'ms linear';
       layer.style.opacity = 1;
       layer.style.transform = 'scale(1.08)';
-      shade.style.opacity = 1;
       setTimeout(function () { if (layers[front] !== old) { old.style.opacity = 0; old.style.backgroundImage = 'none'; } }, FADE_MS + 100);
-      current = still;
+      current = { cmd: 'feh ~/stills/' + still.name, title: still.title };
       render();
       if (done) done();
     };
@@ -230,26 +276,56 @@ void main() {
     img.src = still.src;
   }
 
-  function round(left) {
-    clearTimeout(roundTimer);
-    if (left === 0) {
-      current = null;
-      resumeHole();
-      layers.forEach(function (l) { l.style.opacity = 0; });
-      shade.style.opacity = 0;
-      setTimeout(function () { layers.forEach(function (l) { if (l.style.opacity === '0') l.style.backgroundImage = 'none'; }); }, FADE_MS + 100);
-      render();
-      roundTimer = setTimeout(function () { round(PER_ROUND); }, HOLE_MS);
-      return;
-    }
-    showStill(nextStill(), function () {
-      if (left === PER_ROUND) setTimeout(pauseHole, FADE_MS + 100);
+  function stillsRound(left) {
+    if (left === 0) return nextMode();
+    showStill(next(stillQueue, window.Stills), function () {
+      if (left === PER_ROUND) setTimeout(function () { if (mode === 'stills') { pauseHole(); stopVideo(); } }, FADE_MS + 100);
     });
-    roundTimer = setTimeout(function () { round(left - 1); }, STILL_MS);
+    modeTimer = setTimeout(function () { stillsRound(left - 1); }, STILL_MS);
   }
 
-  if (STILLS.length) roundTimer = setTimeout(function () { round(PER_ROUND); }, HOLE_MS);
-  window.saver = { stills: function () { round(PER_ROUND); }, hole: function () { round(0); } };  // for testing over DevTools
+  function hideStills() {
+    body.classList.remove('stills');
+    layers.forEach(function (l) { l.style.opacity = 0; });
+    setTimeout(function () { layers.forEach(function (l) { if (l.style.opacity === '0') l.style.backgroundImage = 'none'; }); }, FADE_MS + 100);
+  }
+
+  // Aerials: Java starts the video, then calls saver.videoStarted(); we fade the page away to reveal it.
+  var playing = null;
+  function playAerial() {
+    playing = next(aerialQueue, window.Aerials);
+    if (!(window.Aerials && Aerials.play(playing.name))) return nextMode();
+    modeTimer = setTimeout(nextMode, AERIAL_MAX_MS);
+  }
+  function videoStarted() {
+    if (mode !== 'aerial' || !playing) return;
+    current = { cmd: 'mpv ~/aerials/' + playing.name, title: playing.title + (playing.kind ? '  <span class="d">' + playing.kind + '</span>' : ''), html: true };
+    render();
+    body.classList.add('video');
+    hideStills();
+    setTimeout(function () { if (mode === 'aerial') pauseHole(); }, FADE_MS + 100);
+  }
+  function videoEnded() { if (mode === 'aerial') nextMode(); }
+  function leaveAerial() {
+    playing = null;
+    if (mode === 'hole') resumeHole();
+    body.classList.remove('video');
+    setTimeout(function () { if (mode !== 'aerial' && mode !== 'stills') stopVideo(); }, FADE_MS + 100);
+  }
+  function stopVideo() { if (window.Aerials && mode !== 'aerial') Aerials.stop(); }
+
+  // Film grain: a small noise canvas redrawn ~14x a second, only while stills are up.
+  var grain = document.getElementById('grain'), gctx = grain.getContext('2d');
+  grain.width = 320; grain.height = 180;
+  var gimg = gctx.createImageData(320, 180);
+  setInterval(function () {
+    if (mode !== 'stills') return;
+    var d = gimg.data;
+    for (var i = 0; i < d.length; i += 4) { var v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+    gctx.putImageData(gimg, 0, 0);
+  }, 70);
+
+  window.saver = { next: nextMode, videoStarted: videoStarted, videoEnded: videoEnded, mode: function () { return mode; } };
 
   // ---- Terminal ----
   var term = document.getElementById('term');
@@ -281,8 +357,8 @@ void main() {
       lines.push('<span class="d">fetching…</span>');
     }
     if (current) {
-      lines.push(prompt('feh ~/stills/' + esc(current.name)));
-      lines.push('<span class="h">' + esc(current.title) + '</span>');
+      lines.push(prompt(esc(current.cmd)));
+      lines.push('<span class="h">' + (current.html ? current.title : esc(current.title)) + '</span>');
     }
     lines.push(prompt('<span class="cur"></span>'));
     term.innerHTML = lines.join('\n');
@@ -295,7 +371,7 @@ void main() {
 
   function refreshWeather() { weather.get(function (w) { wx = w; render(); }); }
 
-  render();
+  nextMode();
   refreshWeather();
   setInterval(render, 1000);
   setInterval(refreshWeather, 10 * 60 * 1000);

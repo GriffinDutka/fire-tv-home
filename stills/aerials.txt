@@ -1,0 +1,11 @@
+# Apple TV aerials for the screensaver (4K SDR HEVC, ~350 MB each).
+# One per line: the name as Apple labels it, optionally "#n" to pick the nth clip with that name.
+# Full catalog: ./scripts/aerials.sh --list
+New York Night
+North America Aurora
+Korea and Japan Night
+Africa Night
+Hong Kong
+Dubai
+Iceland
+Greenland

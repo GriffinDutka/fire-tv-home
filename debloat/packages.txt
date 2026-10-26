@@ -1,0 +1,35 @@
+# Packages to DISABLE (never uninstall). One per line; tier tag after "#".
+# debloat.sh only acts on tiers you pass it. restore.sh re-enables everything here.
+#
+# Never add: launcher, settings, input/IME, webview, auth/identity, providers, OOBE.
+
+# --- tracking / telemetry ---
+com.amazon.tv.acr                      # tracking: automatic content recognition (watches what's on screen)
+com.amazon.device.metrics              # tracking: device metrics upload
+com.amazon.tv.fw.metrics               # tracking: framework metrics
+com.amazon.wirelessmetrics.service     # tracking: wifi metrics
+com.amazon.perfcollection              # tracking: performance telemetry
+com.amazon.dp.logger                   # tracking: logging
+com.amazon.device.crashmanager         # tracking: crash report upload
+com.amazon.hybridadidservice           # tracking: advertising ID
+
+# --- ads / shopping / promos ---
+com.amazon.ftvads.deeplinking          # ads: home-screen ad deeplinks
+com.amazon.shoptv.client               # ads: shopping
+com.amazon.shoptv.firetv.client        # ads: shopping
+com.amazon.sneakpeek                   # ads: autoplay previews on home
+com.amazon.tv.democontent.provider     # ads: store demo content
+com.amazon.minitv.android.app          # ads: Amazon miniTV
+
+# --- unused extras ---
+com.amazon.bueller.music               # extras: Amazon Music shell
+com.amazon.bueller.photos              # extras: Amazon Photos shell
+com.amazon.gamehub                     # extras: game hub
+com.amazon.storm.lightning.tutorial    # extras: tutorial
+com.amazon.tmm.tutorial                # extras: tutorial
+com.amazon.tv.releasenotes             # extras: "what's new" popups
+
+# --- optional (think before enabling these tiers) ---
+com.amazon.device.software.ota         # updates: system updates (also stops security patches)
+com.amazon.tv.forcedotaupdater.v2      # updates: forced updates
+com.amazon.ftv.screensaver             # screensaver: Amazon ambient screensaver

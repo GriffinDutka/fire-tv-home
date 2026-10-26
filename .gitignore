@@ -1,3 +1,5 @@
 # Device snapshots contain serials / Android IDs
 baseline/
 .DS_Store
+launcher/build/
+launcher/debug.keystore

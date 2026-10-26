@@ -9,6 +9,19 @@ grep -v '^\s*#' "$ROOT/debloat/packages.txt" | grep -v '^\s*$' | while read -r p
 done
 
 "$ROOT/scripts/animations.sh" 1.0
+
+# Griffin Home: drop the home guard, then uninstall the app.
+GUARD="com.griffin.home/com.griffin.home.HomeGuard"
+current="$(adb_tv shell settings get secure enabled_accessibility_services | tr -d '\r')"
+remaining="$(echo "$current" | tr ':' '\n' | grep -v -x -F "$GUARD" | grep -v -x null | paste -sd: - || true)"
+if [[ -z "$remaining" ]]; then
+  adb_tv shell settings delete secure enabled_accessibility_services >/dev/null
+  adb_tv shell settings put secure accessibility_enabled 0
+else
+  adb_tv shell settings put secure enabled_accessibility_services "$remaining"
+fi
+adb_tv uninstall com.griffin.home >/dev/null 2>&1 || true
+
 adb_tv shell pm enable com.amazon.tv.launcher >/dev/null 2>&1 || true
 adb_tv shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
 echo "Restored stock behavior."

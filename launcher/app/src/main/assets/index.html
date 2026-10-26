@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Griffin Home</title>
+<style>
+@font-face { font-family: 'Instrument Sans'; src: url(fonts/InstrumentSans.woff2) format('woff2'); font-weight: 400 700; }
+@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif.woff2) format('woff2'); }
+
+:root {
+  --ground: #0B0B0C;
+  --tile: #18181B;
+  --row: #141416;
+  --ink: #F2F0EA;
+  --ink-2: #D6D4CE;
+  --muted: #A6A49E;
+  --faint: #8C8A85;
+  --accent: #F2F0EA;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --mono: ui-monospace, 'Droid Sans Mono', monospace;
+}
+html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; }
+body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+/* Designed at 1600x900, scaled to whatever the TV reports. */
+#stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; }
+.screen { position: absolute; inset: 0; display: none; }
+.screen.on { display: flex; }
+
+#home { flex-direction: column; padding: 56px 72px; box-sizing: border-box; }
+.top { display: flex; justify-content: space-between; align-items: center; }
+.greet { font-family: var(--serif); font-size: 40px; }
+.clock { display: flex; gap: 20px; align-items: center; font-size: 18px; color: var(--muted); }
+.clock b { color: var(--ink); font-size: 22px; font-weight: 500; }
+
+.hero { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 48px; }
+.kicker { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; font-size: 16px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.hero h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 132px; line-height: 1; letter-spacing: -.01em; }
+.caption { margin-top: 18px; font-size: 18px; color: var(--faint); font-family: var(--mono); }
+
+.label { font-size: 15px; color: var(--faint); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 16px; }
+.label.sys { margin-top: 36px; }
+.row { display: flex; gap: 14px; }
+.tile {
+  box-sizing: border-box; width: 150px; height: 104px; border-radius: 14px; padding: 18px 18px 16px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  background: var(--tile); color: var(--ink-2); font-size: 19px; font-weight: 500;
+  transition: transform 110ms cubic-bezier(.2,.8,.2,1), background 110ms ease, color 110ms ease;
+}
+.tile .dot { width: 10px; height: 10px; }
+.tile.wide { width: 260px; justify-content: flex-end; }
+.tile.focus { background: var(--accent); color: var(--ground); transform: scale(1.08); }
+
+#settings { }
+.side { width: 560px; padding: 72px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; border-right: 1px solid #1E1E21; }
+.side .eyebrow { font-size: 16px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
+.side h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 104px; line-height: 1; }
+.side p { margin: 20px 0 0; font-size: 18px; color: var(--faint); line-height: 1.5; }
+.list { flex-grow: 1; padding: 72px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.srow {
+  display: flex; justify-content: space-between; align-items: center; padding: 22px 28px; border-radius: 14px;
+  background: var(--row); color: var(--ink-2); transition: background 110ms ease, color 110ms ease;
+}
+.srow .t { display: flex; flex-direction: column; gap: 6px; }
+.srow .l { font-size: 26px; font-weight: 500; }
+.srow .s { font-size: 16px; color: var(--faint); }
+.srow .v { font-size: 22px; font-weight: 500; }
+.srow.focus { background: var(--accent); color: var(--ground); }
+.srow.focus .s { color: #3A3936; }
+.toast { margin-top: 18px; font-size: 16px; color: #8C8A85; min-height: 22px; }
+
+#launching { flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #050506; }
+#launching .dot { width: 16px; height: 16px; }
+#launching h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 120px; line-height: 1; }
+#launching p { margin: 0; font-size: 18px; color: var(--faint); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <section id="home" class="screen on">
+    <div class="top">
+      <span class="greet" id="greet"></span>
+      <span class="clock"><span id="date"></span><b id="time"></b></span>
+    </div>
+    <div class="hero">
+      <div class="kicker"><span class="dot" id="heroDot"></span><span id="heroKicker"></span></div>
+      <h1 id="heroTitle"></h1>
+      <div class="caption" id="heroCaption"></div>
+    </div>
+    <div class="label">Apps</div>
+    <div class="row" id="appsRow"></div>
+    <div class="label sys">System</div>
+    <div class="row" id="sysRow"></div>
+  </section>
+
+  <section id="settings" class="screen">
+    <div class="side">
+      <div class="eyebrow">Your TV</div>
+      <h2>Settings</h2>
+      <p>Fire OS 7.7.1.7 · TCL 55S450F<br>Everything here is reversible.</p>
+    </div>
+    <div class="list">
+      <div id="settingsList"></div>
+      <div class="toast" id="toast"></div>
+    </div>
+  </section>
+
+  <section id="launching" class="screen">
+    <span class="dot" id="launchDot"></span>
+    <h1 id="launchName"></h1>
+    <p>Back returns home</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var A = window.Android || null;
+
+  var APPS = [
+    { name: 'Netflix', pkg: 'com.netflix.ninja', color: '#E50914' },
+    { name: 'YouTube', pkg: 'com.amazon.firetv.youtube', color: '#FF3B30' },
+    { name: 'Apple TV', pkg: 'com.apple.atve.amazon.appletv', color: '#C7C7CC' },
+    { name: 'Peacock', pkg: 'com.peacock.peacockfiretv', color: '#F5B700' },
+    { name: 'Max', pkg: 'com.hbo.hbonow', color: '#3D5AFE' },
+    { name: 'Tubi', pkg: 'com.tubitv.ott', color: '#FF6A1A' },
+    { name: 'Pluto TV', pkg: 'tv.pluto.android', color: '#FFE14D' },
+    { name: 'Fawesome', pkg: 'com.future.moviesByFawesomeAndroidTV', color: '#2EC4B6' },
+    { name: 'Crossy Road', pkg: 'com.hipsterwhale.crossy', color: '#7BD389' }
+  ].filter(function (a) { return !A || A.installed(a.pkg); });
+
+  var SYS = [
+    { name: 'Settings', caption: 'Animation speed, cleanup status, home guard', run: function () { show('settings'); } },
+    { name: 'TV settings', caption: 'Fire OS settings: network, display, inputs', run: function () { A && A.tvSettings(); } },
+    { name: 'Amazon home', caption: 'Amazon’s home for 10 minutes: inputs, app library', run: function () { A && A.amazonHome(); } }
+  ];
+
+  var st = { screen: 'home', row: 0, col: 0, srow: 0, seed: Math.random() };
+
+  function $(id) { return document.getElementById(id); }
+
+  // clientWidth, not innerWidth: the WebView widens innerWidth to fit the unscaled 1600px stage.
+  function fit() {
+    var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
+    var s = Math.min(w / 1600, h / 900);
+    var stage = $('stage');
+    stage.style.transform = 'scale(' + s + ')';
+    stage.style.left = ((w - 1600 * s) / 2) + 'px';
+    stage.style.top = ((h - 900 * s) / 2) + 'px';
+  }
+
+  function greeting(now) {
+    var hr = now.getHours();
+    var part = hr < 5 ? 'night' : hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : hr < 22 ? 'evening' : 'night';
+    var day = now.toLocaleDateString([], { weekday: 'long' });
+    var any = ['Welcome back, Griffin', 'Hey, Griffin', 'Good to see you, Griffin', 'Griffin returns',
+      'Happy ' + day + ', Griffin', 'Make yourself at home, Griffin', 'Pick something good, Griffin'];
+    var byPart = {
+      morning: ['Good morning, Griffin', 'Morning, Griffin', 'Rise and shine, Griffin', 'Coffee and a show, Griffin?', 'Easy start today, Griffin?', 'Slow morning, Griffin?'],
+      afternoon: ['Good afternoon, Griffin', 'Afternoon, Griffin', 'Back at it, Griffin', 'Taking a break, Griffin?', 'Midday reset, Griffin?', 'How’s the day going, Griffin?'],
+      evening: ['Good evening, Griffin', 'Evening, Griffin', 'What are we watching, Griffin?', 'How was your day, Griffin?', 'Time to unwind, Griffin', 'Settle in, Griffin', 'Lights down, Griffin'],
+      night: ['Up late, Griffin?', 'Hey there, night owl', 'One more episode, Griffin?', 'Can’t sleep, Griffin?', 'Burning the midnight oil, Griffin?', 'Late show, Griffin?']
+    }[part];
+    var weekend = (day === 'Saturday' || day === 'Sunday') ? ['Weekend mode, Griffin', 'Lazy ' + day + ', Griffin?'] : [];
+    var all = byPart.concat(any, weekend);
+    return all[Math.floor(st.seed * all.length)];
+  }
+
+  function tick() {
+    var now = new Date();
+    $('time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    $('greet').textContent = greeting(now);
+  }
+
+  function rowLen(r) { return r === 0 ? APPS.length : SYS.length; }
+
+  function tile(name, color, wide, focused) {
+    var d = document.createElement('div');
+    d.className = 'tile' + (wide ? ' wide' : '') + (focused ? ' focus' : '');
+    if (color) {
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.style.background = color;
+      d.appendChild(dot);
+    }
+    var t = document.createElement('span');
+    t.textContent = name;
+    d.appendChild(t);
+    return d;
+  }
+
+  function renderHome() {
+    var apps = $('appsRow'), sys = $('sysRow');
+    apps.innerHTML = ''; sys.innerHTML = '';
+    APPS.forEach(function (a, i) { apps.appendChild(tile(a.name, a.color, false, st.row === 0 && st.col === i)); });
+    SYS.forEach(function (x, i) { sys.appendChild(tile(x.name, null, true, st.row === 1 && st.col === i)); });
+
+    var it = st.row === 0 ? APPS[st.col] : SYS[st.col];
+    $('heroTitle').textContent = it ? it.name : '';
+    $('heroCaption').textContent = it ? (it.pkg || it.caption) : '';
+    $('heroKicker').textContent = st.row === 0 ? 'App' : 'System';
+    $('heroDot').style.background = st.row === 0 && it ? it.color : '#8C8A85';
+  }
+
+  function settingsRows() {
+    var anim = A ? A.getAnim() : 0.5;
+    var guard = A ? A.guardOn() : true;
+    return [
+      { label: 'Animation speed', sub: 'OK cycles 0.5x → 1.0x → Off', value: anim === 0 ? 'Off' : anim + 'x', run: function () {
+          var next = anim === 0.5 ? 1 : anim === 1 ? 0 : 0.5;
+          toast(A && A.setAnim(next) ? 'Animation speed set to ' + (next === 0 ? 'off' : next + 'x') : 'Not allowed — re-run install.sh');
+        } },
+      { label: 'Ads & tracking', sub: '17 Amazon apps disabled · 3 protected by Fire OS', value: 'Cleaned', run: function () { toast('Managed from the Mac: scripts/debloat.sh'); } },
+      { label: 'Home guard', sub: guard ? 'This screen replaces Amazon’s home' : 'Amazon’s home is back', value: guard ? 'On' : 'Off', run: function () {
+          var ok = A && A.setGuardOn(!guard);
+          toast(ok ? (guard ? 'Off — open Griffin Home from Your Apps to turn it back on' : 'On — Home button now comes here') : 'Not allowed — re-run install.sh');
+        } },
+      { label: 'Restore everything', sub: 'Re-enable apps, stock animations, Amazon home', value: 'Mac', run: function () { toast('Run ./scripts/restore.sh from the fire-tv repo'); } }
+    ];
+  }
+
+  var rows = [];
+  function renderSettings() {
+    rows = settingsRows();
+    var list = $('settingsList');
+    list.innerHTML = '';
+    list.style.display = 'flex'; list.style.flexDirection = 'column'; list.style.gap = '14px';
+    rows.forEach(function (r, i) {
+      var d = document.createElement('div');
+      d.className = 'srow' + (st.srow === i ? ' focus' : '');
+      d.innerHTML = '<div class="t"><span class="l"></span><span class="s"></span></div><span class="v"></span>';
+      d.querySelector('.l').textContent = r.label;
+      d.querySelector('.s').textContent = r.sub;
+      d.querySelector('.v').textContent = r.value;
+      list.appendChild(d);
+    });
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    $('toast').textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('toast').textContent = ''; }, 4000);
+    renderSettings();
+  }
+
+  function show(name) {
+    st.screen = name;
+    ['home', 'settings', 'launching'].forEach(function (s) { $(s).classList.toggle('on', s === name); });
+    if (name === 'home') renderHome();
+    if (name === 'settings') { st.srow = 0; $('toast').textContent = ''; renderSettings(); }
+  }
+
+  function launch(app) {
+    $('launchName').textContent = app.name;
+    $('launchDot').style.background = app.color;
+    show('launching');
+    setTimeout(function () {
+      if (!(A && A.launch(app.pkg))) show('home');
+    }, 150);
+  }
+
+  function key(k) {
+    if (st.screen === 'home') {
+      if (k === 'up' || k === 'down') {
+        var r = Math.max(0, Math.min(1, st.row + (k === 'down' ? 1 : -1)));
+        if (r !== st.row) { st.row = r; st.col = Math.min(st.col, rowLen(r) - 1); }
+      } else if (k === 'left') st.col = Math.max(0, st.col - 1);
+      else if (k === 'right') st.col = Math.min(rowLen(st.row) - 1, st.col + 1);
+      else if (k === 'ok') return st.row === 0 ? launch(APPS[st.col]) : SYS[st.col].run();
+      else if (k === 'menu') return show('settings');
+      renderHome();
+    } else if (st.screen === 'settings') {
+      if (k === 'up') st.srow = Math.max(0, st.srow - 1);
+      else if (k === 'down') st.srow = Math.min(rows.length - 1, st.srow + 1);
+      else if (k === 'ok') return rows[st.srow].run();
+      else if (k === 'back' || k === 'menu') return show('home');
+      renderSettings();
+    } else if (k === 'back') show('home');
+  }
+
+  // Called by MainActivity whenever the user comes back home.
+  function resume() {
+    st.seed = Math.random();
+    tick();
+    show('home');
+  }
+
+  window.tv = { key: key, resume: resume };
+
+  // Browser testing without the Android bridge.
+  if (!A) {
+    var map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back', Backspace: 'back', m: 'menu' };
+    document.addEventListener('keydown', function (e) { if (map[e.key]) { e.preventDefault(); key(map[e.key]); } });
+  }
+
+  window.addEventListener('resize', fit);
+  fit();
+  tick();
+  renderHome();
+  setInterval(tick, 15000);
+})();
+</script>
+</body>
+</html>

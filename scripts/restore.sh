@@ -5,7 +5,7 @@ source "$(dirname "$0")/common.sh"
 ensure_connected
 
 grep -v '^\s*#' "$ROOT/debloat/packages.txt" | grep -v '^\s*$' | while read -r pkg _; do
-  echo "$pkg: $(adb_tv shell pm enable "$pkg" 2>&1 || true)"
+  echo "$pkg: $(adb_tv shell pm enable "$pkg" </dev/null 2>&1 || true)"
 done
 
 "$ROOT/scripts/animations.sh" 1.0

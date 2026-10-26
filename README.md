@@ -34,5 +34,5 @@ Tiers: `tracking`, `ads`, `extras`, and the opt-in `updates`, `screensaver`.
 
 - [x] ADB over Wi-Fi + baseline snapshot
 - [x] Faster animations
-- [ ] Debloat (tracking / ads / extras)
+- [x] Debloat (tracking / ads / extras) — 17 disabled; 3 protected by Fire OS
 - [ ] Custom launcher

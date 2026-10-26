@@ -19,7 +19,7 @@ grep -v '^\s*#' "$ROOT/debloat/packages.txt" | grep -v '^\s*$' | while read -r p
   if [[ $dry -eq 1 ]]; then
     echo "would disable: $pkg ($tier)"
   else
-    result="$(adb_tv shell pm disable-user --user 0 "$pkg" 2>&1 || true)"
+    result="$(adb_tv shell pm disable-user --user 0 "$pkg" </dev/null 2>&1 | head -1 || true)"
     echo "$pkg: $result"
   fi
 done

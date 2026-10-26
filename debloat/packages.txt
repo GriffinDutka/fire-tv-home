@@ -5,16 +5,16 @@
 
 # --- tracking / telemetry ---
 com.amazon.tv.acr                      # tracking: automatic content recognition (watches what's on screen)
-com.amazon.device.metrics              # tracking: device metrics upload
+com.amazon.device.metrics              # protected: (Fire OS refuses to disable) device metrics upload
 com.amazon.tv.fw.metrics               # tracking: framework metrics
 com.amazon.wirelessmetrics.service     # tracking: wifi metrics
 com.amazon.perfcollection              # tracking: performance telemetry
 com.amazon.dp.logger                   # tracking: logging
-com.amazon.device.crashmanager         # tracking: crash report upload
+com.amazon.device.crashmanager         # protected: (Fire OS refuses to disable) crash report upload
 com.amazon.hybridadidservice           # tracking: advertising ID
 
 # --- ads / shopping / promos ---
-com.amazon.ftvads.deeplinking          # ads: home-screen ad deeplinks
+com.amazon.ftvads.deeplinking          # protected: (Fire OS refuses to disable) home-screen ad deeplinks
 com.amazon.shoptv.client               # ads: shopping
 com.amazon.shoptv.firetv.client        # ads: shopping
 com.amazon.sneakpeek                   # ads: autoplay previews on home

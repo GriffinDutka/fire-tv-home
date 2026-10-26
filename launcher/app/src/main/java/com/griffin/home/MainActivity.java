@@ -4,6 +4,8 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -14,10 +16,17 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import java.io.File;
+import java.io.FileOutputStream;
+
 public class MainActivity extends Activity {
     private static final long AMAZON_HOME_PAUSE_MS = 10 * 60 * 1000;
+    private static final long SNAPSHOT_DELAY_MS = 1500;
+    private static final long SNAPSHOT_EVERY_MS = 60 * 1000;
 
     private WebView web;
+    private boolean resumed;
+    private final Runnable snapshot = this::snapshot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +52,40 @@ public class MainActivity extends Activity {
         Prefs.resume(this);
         hideSystemUi();
         js("window.tv && tv.resume()");
+        resumed = true;
+        HomeGuard.homeShown();
+        web.removeCallbacks(snapshot);
+        web.postDelayed(snapshot, SNAPSHOT_DELAY_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        resumed = false;
+        web.removeCallbacks(snapshot);
+        super.onPause();
+    }
+
+    /** Picture of the home screen that HomeGuard flashes over Amazon's home while ours starts. */
+    private void snapshot() {
+        if (!resumed || web.getWidth() == 0) return;
+        try {
+            Bitmap b = Bitmap.createBitmap(web.getWidth(), web.getHeight(), Bitmap.Config.RGB_565);
+            web.draw(new Canvas(b));
+            final Bitmap img = b;
+            new Thread(() -> {
+                File tmp = new File(getFilesDir(), HomeGuard.SNAPSHOT + ".tmp");
+                try (FileOutputStream out = new FileOutputStream(tmp)) {
+                    img.compress(Bitmap.CompressFormat.JPEG, 85, out);
+                } catch (Exception e) {
+                    return;
+                } finally {
+                    img.recycle();
+                }
+                tmp.renameTo(new File(getFilesDir(), HomeGuard.SNAPSHOT));
+            }).start();
+        } catch (RuntimeException | OutOfMemoryError ignored) {
+        }
+        web.postDelayed(snapshot, SNAPSHOT_EVERY_MS);
     }
 
     @Override

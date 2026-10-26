@@ -206,6 +206,10 @@ void main() {
   // Aerials play in a native VideoView behind this (transparent) page, so the terminal stays on top.
   var HOLE_MS = 3 * 60 * 1000, STILL_MS = 20 * 1000, PER_ROUND = 8, FADE_MS = 2500, AERIAL_MAX_MS = 8 * 60 * 1000;
   var CYCLE = ['hole', 'aerial', 'stills', 'aerial'];
+  // Home screen → Settings → Screensaver turns modes off; shared with this page through localStorage.
+  function enabled(m) {
+    try { return (JSON.parse(localStorage.getItem('saver.modes')) || {})[m] !== false; } catch (e) { return true; }
+  }
   function load(bridge) { try { return JSON.parse(bridge ? bridge.list() : '[]'); } catch (e) { return []; } }
   var STILLS = load(window.Stills), AERIALS = load(window.Aerials);
   var layers = [document.getElementById('stillA'), document.getElementById('stillB')];
@@ -231,8 +235,10 @@ void main() {
     for (var i = 0; i < CYCLE.length; i++) {
       step = (step + 1) % CYCLE.length;
       var m = CYCLE[step];
+      if (!enabled(m)) continue;
       if (m === 'hole' || (m === 'stills' && STILLS.length) || (m === 'aerial' && AERIALS.length)) return enter(m);
     }
+    enter('hole');   // everything else is off or missing
   }
 
   function enter(m) {
@@ -353,6 +359,9 @@ void main() {
       lines.push('<span class="h">Chicago, IL</span>  ' + wx.temp + '°F  ' + esc(wx.text) + '  <span class="d">feels ' + wx.feels + '°</span>');
       lines.push('<span class="d">hi</span> ' + wx.hi + '°  <span class="d">lo</span> ' + wx.lo + '°  <span class="d">wind</span> ' + wx.wind + ' mph ' + wx.windDir + '  <span class="d">hum</span> ' + wx.humidity + '%');
       lines.push('<span class="d">sunrise</span> ' + wx.sunrise + '  <span class="d">sunset</span> ' + wx.sunset);
+      if (wx.days) lines.push(wx.days.map(function (d) {
+        return '<span class="d">' + d.dow + '</span> ' + d.hi + '°/' + d.lo + '° ' + esc(d.text);
+      }).join('  '));
     } else {
       lines.push('<span class="d">fetching…</span>');
     }

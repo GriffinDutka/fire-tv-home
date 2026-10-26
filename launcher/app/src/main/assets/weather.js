@@ -3,9 +3,9 @@
 (function () {
   var URL = 'https://api.open-meteo.com/v1/forecast?latitude=41.88&longitude=-87.63' +
     '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day' +
-    '&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset' +
-    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=1';
-  var KEY = 'weather.chicago';
+    '&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset' +
+    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=4';
+  var KEY = 'weather.chicago.v2';
   var FRESH_MS = 15 * 60 * 1000;
 
   // WMO weather codes → short words.
@@ -18,6 +18,7 @@
     95: 'thunderstorms', 96: 'thunderstorms, hail', 99: 'thunderstorms, hail'
   };
   var DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   function parse(j) {
     var c = j.current, d = j.daily;
@@ -34,7 +35,18 @@
       hi: Math.round(d.temperature_2m_max[0]),
       lo: Math.round(d.temperature_2m_min[0]),
       sunrise: d.sunrise[0].slice(11),
-      sunset: d.sunset[0].slice(11)
+      sunset: d.sunset[0].slice(11),
+      // The next three days: [{dow, hi, lo, code, text}]
+      days: d.time.slice(1).map(function (t, i) {
+        var p = t.split('-');
+        return {
+          dow: DAYS[new Date(+p[0], p[1] - 1, +p[2]).getDay()],
+          hi: Math.round(d.temperature_2m_max[i + 1]),
+          lo: Math.round(d.temperature_2m_min[i + 1]),
+          code: d.weather_code[i + 1],
+          text: CODES[d.weather_code[i + 1]] || 'unknown'
+        };
+      })
     };
   }
 

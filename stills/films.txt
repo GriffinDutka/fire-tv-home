@@ -6,3 +6,5 @@
 335984  8   Blade Runner 2049 (2017)
 64690   6   Drive (2011)
 438631  6   Dune (2021)
+550     8   Fight Club (1999)
+155     8   The Dark Knight (2008)

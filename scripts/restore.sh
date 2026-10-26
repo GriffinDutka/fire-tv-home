@@ -23,5 +23,8 @@ fi
 adb_tv uninstall com.griffin.home >/dev/null 2>&1 || true
 
 adb_tv shell pm enable com.amazon.tv.launcher >/dev/null 2>&1 || true
+# Amazon's screensaver back.
+adb_tv shell settings put secure screensaver_components com.amazon.ftv.screensaver/.app.services.ScreensaverService
+
 adb_tv shell am start -a android.intent.action.MAIN -c android.intent.category.HOME >/dev/null
 echo "Restored stock behavior."

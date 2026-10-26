@@ -33,6 +33,9 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
 .greet { font-family: var(--serif); font-size: 40px; }
 .clock { display: flex; gap: 20px; align-items: center; font-size: 18px; color: var(--muted); }
 .clock b { color: var(--ink); font-size: 22px; font-weight: 500; }
+.wx { color: var(--ink-2); }
+.wx:empty { display: none; }
+.wx i { font-style: normal; color: var(--faint); margin-left: 8px; }
 
 .hero { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 48px; }
 .kicker { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; font-size: 16px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
@@ -82,7 +85,7 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
   <section id="home" class="screen on">
     <div class="top">
       <span class="greet" id="greet"></span>
-      <span class="clock"><span id="date"></span><b id="time"></b></span>
+      <span class="clock"><span class="wx" id="wx"></span><span id="date"></span><b id="time"></b></span>
     </div>
     <div class="hero">
       <div class="kicker"><span class="dot" id="heroDot"></span><span id="heroKicker"></span></div>
@@ -114,6 +117,7 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
   </section>
 </div>
 
+<script src="weather.js"></script>
 <script>
 (function () {
   var A = window.Android || null;
@@ -172,6 +176,10 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
     $('time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
     $('greet').textContent = greeting(now);
+  }
+
+  function showWeather() {
+    weather.get(function (w) { $('wx').innerHTML = w.temp + '° ' + w.text + '<i>Chicago</i>'; });
   }
 
   function rowLen(r) { return r === 0 ? APPS.length : SYS.length; }
@@ -285,6 +293,7 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
   function resume() {
     st.seed = Math.random();
     tick();
+    showWeather();
     show('home');
   }
 
@@ -301,6 +310,8 @@ body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink);
   tick();
   renderHome();
   setInterval(tick, 15000);
+  showWeather();
+  setInterval(showWeather, 10 * 60 * 1000);
 })();
 </script>
 </body>

@@ -24,5 +24,9 @@ fi
 adb_tv shell settings put secure enabled_accessibility_services "$services"
 adb_tv shell settings put secure accessibility_enabled 1
 
+# Gargantua screensaver in place of Amazon's.
+adb_tv shell settings put secure screensaver_components "$PKG/.Gargantua"
+adb_tv shell settings put secure screensaver_enabled 1
+
 adb_tv shell am start -n "$PKG/.MainActivity" >/dev/null
 echo "Griffin Home installed. Guard: $(adb_tv shell settings get secure enabled_accessibility_services)"

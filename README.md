@@ -47,3 +47,5 @@ Fire OS handles the real remote's Home before any app sees it, and Android then 
 The home screen shows Chicago weather from [Open-Meteo](https://open-meteo.com) (no API key).
 
 **Screensaver:** `Gargantua` is a DreamService that renders Interstellar's black hole (WebGL ray-bent accretion disk, `assets/screensaver.html`) with a terminal readout of the date and Chicago weather. `install-launcher.sh` sets it as the screensaver; `restore.sh` puts Amazon's back.
+
+**Film stills:** every 3 minutes the screensaver plays 8 stills (20s each, slow zoom) before returning to Gargantua. List films in `stills/films.txt`, then `TMDB_API_KEY=... ./scripts/stills.sh` downloads text-free 4K backdrops via the TMDB API and copies them to the TV. Any `.jpg` dropped into `stills/images/` is included too. Images are gitignored. `./scripts/stills.sh --clear` removes them from the TV.

@@ -8,8 +8,11 @@
 @font-face { font-family: 'JetBrains Mono'; src: url(fonts/JetBrainsMono.woff2) format('woff2'); }
 html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 #sky { position: absolute; inset: 0; width: 100%; height: 100%; }
+.still { position: absolute; inset: 0; background: #000 center / cover no-repeat; opacity: 0; will-change: opacity, transform; }
+#shade { position: absolute; inset: 0; z-index: 3; opacity: 0; transition: opacity 2.5s ease;
+  background: linear-gradient(to top right, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 32%, rgba(0,0,0,0) 55%); }
 #term {
-  position: absolute; left: 4.5vw; bottom: 6vh; max-width: 60vw;
+  position: absolute; left: 4.5vw; bottom: 6vh; max-width: 60vw; z-index: 5;
   font: 1.45vw/1.55 'JetBrains Mono', ui-monospace, monospace; color: #C9C3B6;
   text-shadow: 0 0 .5vw rgba(0,0,0,.9); white-space: pre; transition: transform 2s ease;
 }
@@ -22,6 +25,9 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
 </head>
 <body>
 <canvas id="sky"></canvas>
+<div class="still" id="stillA"></div>
+<div class="still" id="stillB"></div>
+<div id="shade"></div>
 <div id="term"></div>
 
 <script id="frag" type="x-shader/x-fragment">
@@ -121,6 +127,7 @@ void main() {
   var scale = 0.5;   // render resolution vs. CSS pixels; adapts to the GPU
   var start = performance.now(), last = start, slow = 0, fast = 0;
   var prog, uRes, uT;
+  var running = true;   // false while a still covers the screen, so the GPU rests
 
   function size() {
     var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
@@ -154,6 +161,7 @@ void main() {
   }
 
   function frame(now) {
+    if (!running) return;
     var dt = now - last;
     last = now;
     // Drop resolution when frames are slow, raise it when there's headroom.
@@ -171,6 +179,77 @@ void main() {
     catch (e) { console.log('gargantua: ' + e.message); }
   }
   window.addEventListener('resize', size);
+
+  function pauseHole() { running = false; }
+  function resumeHole() {
+    if (running || !gl || !prog) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Film stills ----
+  // Gargantua for a few minutes, then a run of stills with a slow Ken Burns drift, then back.
+  // Stills live on the TV (scripts/stills.sh pushes them); none = black hole only.
+  var HOLE_MS = 3 * 60 * 1000, STILL_MS = 20 * 1000, PER_ROUND = 8, FADE_MS = 2500;
+  var STILLS = [];
+  try { STILLS = JSON.parse(window.Stills ? Stills.list() : '[]'); } catch (e) {}
+  var layers = [document.getElementById('stillA'), document.getElementById('stillB')];
+  var shade = document.getElementById('shade');
+  var front = 0, queue = [], current = null, roundTimer;
+  var ORIGINS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%', '50% 50%', '30% 60%', '70% 40%'];
+
+  function nextStill() {
+    if (!queue.length) {
+      queue = STILLS.slice();
+      for (var i = queue.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = queue[i]; queue[i] = queue[j]; queue[j] = t; }
+    }
+    return queue.shift();
+  }
+
+  function showStill(still, done) {
+    var img = new Image();
+    img.onload = function () {
+      var layer = layers[front ^= 1], old = layers[front ^ 1];
+      layer.style.transition = 'none';
+      layer.style.backgroundImage = 'url("' + still.src + '")';
+      layer.style.transformOrigin = ORIGINS[Math.floor(Math.random() * ORIGINS.length)];
+      layer.style.transform = 'scale(1)';
+      layer.style.zIndex = 2; old.style.zIndex = 1;
+      void layer.offsetWidth;
+      layer.style.transition = 'opacity ' + FADE_MS + 'ms ease, transform ' + (STILL_MS + FADE_MS * 2) + 'ms linear';
+      layer.style.opacity = 1;
+      layer.style.transform = 'scale(1.08)';
+      shade.style.opacity = 1;
+      setTimeout(function () { if (layers[front] !== old) { old.style.opacity = 0; old.style.backgroundImage = 'none'; } }, FADE_MS + 100);
+      current = still;
+      render();
+      if (done) done();
+    };
+    img.onerror = function () { if (done) done(); };
+    img.src = still.src;
+  }
+
+  function round(left) {
+    clearTimeout(roundTimer);
+    if (left === 0) {
+      current = null;
+      resumeHole();
+      layers.forEach(function (l) { l.style.opacity = 0; });
+      shade.style.opacity = 0;
+      setTimeout(function () { layers.forEach(function (l) { if (l.style.opacity === '0') l.style.backgroundImage = 'none'; }); }, FADE_MS + 100);
+      render();
+      roundTimer = setTimeout(function () { round(PER_ROUND); }, HOLE_MS);
+      return;
+    }
+    showStill(nextStill(), function () {
+      if (left === PER_ROUND) setTimeout(pauseHole, FADE_MS + 100);
+    });
+    roundTimer = setTimeout(function () { round(left - 1); }, STILL_MS);
+  }
+
+  if (STILLS.length) roundTimer = setTimeout(function () { round(PER_ROUND); }, HOLE_MS);
+  window.saver = { stills: function () { round(PER_ROUND); }, hole: function () { round(0); } };  // for testing over DevTools
 
   // ---- Terminal ----
   var term = document.getElementById('term');
@@ -200,6 +279,10 @@ void main() {
       lines.push('<span class="d">sunrise</span> ' + wx.sunrise + '  <span class="d">sunset</span> ' + wx.sunset);
     } else {
       lines.push('<span class="d">fetching…</span>');
+    }
+    if (current) {
+      lines.push(prompt('feh ~/stills/' + esc(current.name)));
+      lines.push('<span class="h">' + esc(current.title) + '</span>');
     }
     lines.push(prompt('<span class="cur"></span>'));
     term.innerHTML = lines.join('\n');

@@ -62,8 +62,10 @@
       cho('Text size', null, ['Default', 'Large'], pref('textSize'), setPref('textSize'))
     ]; } },
     { name: 'Pictures', color: '#FF9F0A', lede: 'What fills the screensaver and Home. Your background redo lands here.', rows: function () { return [
-      cho('Show', null, ['Your pictures', 'Film stills', 'Apple aerials', 'All of them'], pref('picSource'), function (v) { prefs.picSource = v; savePrefs(); pictures.next(prefs); home.showPicture(); }),
-      cho('Change picture', null, ['Every 5 minutes', '15 minutes', 'Every hour', 'Once a day'], pref('picEvery'), setPref('picEvery')),
+      act('Picture', prefs.picPick ? 'Staying on this one' : 'Pick one to keep, or rotate', pickName(), openPicker),
+      sec('Rotate'),
+      cho('Show', null, ['Your pictures', 'Film stills', 'Apple aerials', 'All of them'], pref('picSource'), function (v) { prefs.picSource = v; prefs.picPick = null; savePrefs(); pictures.next(prefs); home.showPicture(); }),
+      cho('Change picture', null, ['Every 5 minutes', '15 minutes', 'Every hour', 'Once a day'], pref('picEvery'), function (v) { prefs.picEvery = v; prefs.picPick = null; savePrefs(); home.showPicture(); }),
       tog('Shuffle', 'Random order instead of in sequence', pref('picShuffle'), setPref('picShuffle')),
       act('Add pictures', 'From your Mac with scripts/stills.sh', 'Mac', function () { toast('Add pictures from your Mac: ./scripts/stills.sh'); })
     ]; } },
@@ -133,6 +135,78 @@
     ]; } }
   ];
 
+  // ---- The picture picker: a grid of every picture on the TV, Rotate first ----
+  var COLS = 4;
+  function pickName() {
+    if (!prefs.picPick) return 'Rotating';
+    var c = store.get('currentPicture', null);
+    return c && pictures.same(c, prefs.picPick) ? c.title : 'Chosen';
+  }
+  function openPicker() {
+    PICK.items = [{ rotate: true, title: 'Rotate' }].concat(pictures.all());
+    PICK.i = 0;
+    for (var j = 1; j < PICK.items.length; j++) if (prefs.picPick && pictures.same(PICK.items[j], prefs.picPick)) PICK.i = j;
+    SET.pane = 'grid';
+  }
+  var PICK = { items: [], i: 0 }, previewT, thumbT;
+  function preview() {
+    clearTimeout(previewT);
+    previewT = setTimeout(function () {
+      var it = PICK.items[PICK.i];
+      if (SET.pane !== 'grid' || !it) return;
+      if (it.rotate) home.showPicture(); else home.preview(it);
+    }, 450);
+  }
+  function choose() {
+    var it = PICK.items[PICK.i];
+    prefs.picPick = it.rotate ? null : { kind: it.kind, name: it.name };
+    savePrefs();
+    if (it.rotate) pictures.next(prefs);
+    home.showPicture();
+    SET.pane = 'rows';
+    toast(it.rotate ? 'Rotating again' : 'Staying on ' + it.title);
+  }
+  function renderGrid(box) {
+    $('setH').textContent = 'Picture';
+    $('setLede').textContent = 'Choose one to keep on Home and the screensaver. It shows behind as you move.';
+    var g = document.createElement('div'), missing = false, focusEl = null;
+    g.className = 'pgrid';
+    PICK.items.forEach(function (it, i) {
+      var d = document.createElement('div'), on = it.rotate ? !prefs.picPick : prefs.picPick && pictures.same(it, prefs.picPick);
+      d.className = 'ptile' + (i === PICK.i ? ' focus' : '') + (on ? ' on' : '') + (it.rotate ? ' rot' : '');
+      d.innerHTML = '<div class="im"></div><div class="t"></div>';
+      if (it.rotate) d.firstChild.textContent = '↻';
+      else {
+        var u = pictures.thumb(it);
+        if (u) d.firstChild.style.backgroundImage = 'url("' + u + '")'; else missing = true;
+      }
+      d.lastChild.textContent = it.title + (it.kind === 'aerial' ? ' · aerial' : '');
+      g.appendChild(d);
+      if (i === PICK.i) focusEl = d;
+    });
+    box.appendChild(g);
+    var y = 0, viewH = box.parentNode.clientHeight;
+    if (focusEl) {
+      var top = Math.floor(PICK.i / COLS) * (focusEl.offsetHeight + 16);
+      y = Math.max(0, Math.min(top - (viewH - focusEl.offsetHeight) / 2, g.offsetHeight - viewH + 8));
+    }
+    box.style.transform = 'translateY(' + (-y) + 'px)';
+    // Thumbnails are made on the TV the first time; fill them in as they arrive.
+    clearTimeout(thumbT);
+    if (missing) thumbT = setTimeout(function () { if (isOpen() && SET.pane === 'grid') render(); }, 1500);
+  }
+  function gridKey(k) {
+    var n = PICK.items.length, i = PICK.i;
+    if (k === 'left') i = i % COLS ? i - 1 : i;
+    else if (k === 'right') i = i % COLS < COLS - 1 ? Math.min(n - 1, i + 1) : i;
+    else if (k === 'up') i = i >= COLS ? i - COLS : i;
+    else if (k === 'down') i = Math.min(n - 1, i + COLS);
+    else if (k === 'ok') return choose(), render();
+    else if (k === 'back') { SET.pane = 'rows'; home.showPicture(); return render(); }
+    if (i !== PICK.i) { PICK.i = i; preview(); }
+    render();
+  }
+
   function setFont(which, name) {
     var f = store.get('fonts', {}) || {};
     f[which] = name;
@@ -150,7 +224,10 @@
   var SET = { cat: 0, row: 0, pane: 'cats', rows: [] };
 
   function open() { prefs = settings.load(); SET.cat = 0; SET.row = 0; SET.pane = 'cats'; stage.classList.add('insettings'); render(); }
-  function close() { stage.classList.remove('insettings'); home.render(); }
+  function close() {
+    if (SET.pane === 'grid') { SET.pane = 'rows'; home.showPicture(); }
+    stage.classList.remove('insettings'); home.render();
+  }
   function isOpen() { return stage.classList.contains('insettings'); }
 
   var toastT;
@@ -172,13 +249,14 @@
       d.lastChild.textContent = c.name;
       cats.appendChild(d);
     });
-    var cat = CATS[SET.cat];
+    var cat = CATS[SET.cat], box = $('setRows');
+    box.innerHTML = '';
+    if (SET.pane === 'grid') return renderGrid(box);
     $('setH').textContent = cat.name;
     $('setLede').textContent = cat.lede;
-    var all = cat.rows(), box = $('setRows');
+    var all = cat.rows();
     SET.rows = all.filter(function (r) { return r.type !== 'section'; });
     SET.row = Math.max(0, Math.min(SET.row, SET.rows.length - 1));
-    box.innerHTML = '';
     if (cat.tip) {
       var tip = document.createElement('div');
       tip.className = 'set-tip';
@@ -219,6 +297,7 @@
   }
 
   function key(k) {
+    if (SET.pane === 'grid') return gridKey(k);
     if (SET.pane === 'cats') {
       if (k === 'up') { SET.cat = Math.max(0, SET.cat - 1); SET.row = 0; }
       else if (k === 'down') { SET.cat = Math.min(CATS.length - 1, SET.cat + 1); SET.row = 0; }

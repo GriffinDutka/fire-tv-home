@@ -2,6 +2,7 @@ package com.griffin.home;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
 import android.webkit.JavascriptInterface;
 
@@ -16,6 +17,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Exposed to the pages as window.Stills (.jpg) and window.Aerials (.mov): files that
@@ -30,6 +33,8 @@ class Media {
 
     private static final long POSTER_AT_US = 20 * 1000 * 1000;
     private static final Set<String> MAKING = new HashSet<>();
+    private static final int THUMB_W = 480;
+    private static final ExecutorService THUMBS = Executors.newSingleThreadExecutor();
 
     private final Context context;
     private final String folder, ext;
@@ -116,6 +121,55 @@ class Media {
                 synchronized (MAKING) { MAKING.remove(out.getName()); }
             }
         }).start();
+        return null;
+    }
+
+    /**
+     * A small JPEG (480 wide) of a still or an aerial, for the picture picker in Settings. Like
+     * poster(): its file:// URL, or null while it's being made (one at a time, in the background).
+     */
+    @JavascriptInterface
+    public String thumb(final String name) {
+        final File f = new File(dir(), name);
+        if (!f.exists() || name.contains("/")) return null;
+        final File out = new File(context.getCacheDir(), "thumbs/" + folder + "/" + name + "-" + f.length() + ".jpg");
+        if (out.exists()) return "file://" + out.getAbsolutePath();
+        synchronized (MAKING) {
+            if (!MAKING.add(out.getPath())) return null;
+        }
+        THUMBS.execute(() -> {
+            Bitmap b = null, s = null;
+            MediaMetadataRetriever r = null;
+            try {
+                out.getParentFile().mkdirs();
+                if (".mov".equals(ext)) {
+                    r = new MediaMetadataRetriever();
+                    r.setDataSource(f.getAbsolutePath());
+                    b = r.getFrameAtTime(POSTER_AT_US, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                } else {
+                    BitmapFactory.Options o = new BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(f.getPath(), o);
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = 1;
+                    while (o.outWidth / (o.inSampleSize * 2) >= THUMB_W) o.inSampleSize *= 2;
+                    b = BitmapFactory.decodeFile(f.getPath(), o);
+                }
+                if (b == null) return;
+                s = Bitmap.createScaledBitmap(b, THUMB_W, THUMB_W * b.getHeight() / b.getWidth(), true);
+                File tmp = new File(out.getPath() + ".tmp");
+                try (FileOutputStream o = new FileOutputStream(tmp)) {
+                    s.compress(Bitmap.CompressFormat.JPEG, 82, o);
+                }
+                tmp.renameTo(out);
+            } catch (Exception | OutOfMemoryError ignored) {
+            } finally {
+                if (s != null && s != b) s.recycle();
+                if (b != null) b.recycle();
+                if (r != null) try { r.release(); } catch (Exception ignored) { }
+                synchronized (MAKING) { MAKING.remove(out.getPath()); }
+            }
+        });
         return null;
     }
 

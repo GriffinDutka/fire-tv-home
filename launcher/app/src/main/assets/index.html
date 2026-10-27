@@ -138,6 +138,14 @@ html, body { background: #000; }
 .srow2.focus .v { color: var(--focus-ink); }
 .srow2.focus .chev { opacity: .55; }
 .srow2.focus .switch:not(.on) { background: rgba(0,0,0,.2); }
+/* The picture picker (Settings → Pictures → Picture) */
+.pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 6px; }
+.ptile { border-radius: 20px; padding: 6px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.ptile .im { height: 118px; border-radius: 14px; background: rgba(255,255,255,.08) center / cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 54px; }
+.ptile .t { font: 500 15px var(--sans); padding: 8px 6px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ptile.on .t::before { content: '✓ '; color: var(--on); }
+.ptile.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.04); }
+.ptile.focus.on .t::before { color: #1F8A3B; }
 .bigtext .srow2 .l { font-size: 24px; }
 .bigtext .srow2 .s { font-size: 17px; }
 .set-toast { position: absolute; left: 40px; right: 40px; bottom: 26px; padding: 14px 20px; border-radius: 18px; background: rgba(0,0,0,.45); font: 17px var(--sans); opacity: 0; transform: translateY(8px); transition: opacity 250ms, transform 250ms; pointer-events: none; }
@@ -607,7 +615,8 @@ html, body { background: #000; }
   window.home = {
     applyPrefs: applyPrefs, rebuild: function () { build(); render(); }, sleep: sleep, render: render,
     resetFavorites: function () { store.set('favorites', DEFAULT_FAVS); build(); render(); },
-    defaultFavorites: DEFAULT_FAVS, wifiLevel: wifiLevel, refreshWeather: refreshWeather, showPicture: showPicture
+    defaultFavorites: DEFAULT_FAVS, wifiLevel: wifiLevel, refreshWeather: refreshWeather, showPicture: showPicture,
+    preview: function (pic) { pictures.show($('scene'), pic, drawBlur); }
   };
   // Called by MainActivity as Home goes out of sight: drop straight to the sharp picture (no
   // transition) so the next resume starts there instead of flashing the old blurred frame.

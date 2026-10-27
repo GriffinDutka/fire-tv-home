@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Griffin Home Glass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=Schibsted+Grotesk:wght@400;500;600;700&family=Hanken+Grotesk:wght@400;500;600;700&family=Funnel+Display:wght@500;600;700&family=Funnel+Sans:wght@400;500;600&family=Red+Hat+Display:wght@500;700&family=Red+Hat+Text:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&family=Instrument+Serif&family=Roboto:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700&family=Fira+Sans:wght@400;500;600;700&family=Montserrat:wght@500;600;700;800&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400&display=swap">
+</head>
+<body>
+<style>
+/* Layout: a 16:9 TV frame (1600x900 stage, scaled) on top, the controls you'd find in Settings underneath. Single dark look on purpose: it's a TV. */
+:root {
+  --room: #0A0A0C;
+  --panel: #141418;
+  --line: #26262C;
+  --ink: #F2F0EA;
+  --ink-2: #C9C6BE;
+  --faint: #8C8A85;
+  --accent: #F2F0EA;
+  --serif: 'Instrument Serif', Georgia, serif;
+  --sans: 'Instrument Sans', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, monospace;
+  /* Type, set by the font picker */
+  --display: 'Host Grotesk', system-ui, sans-serif;
+  --dw: 600;
+  --dls: -.025em;
+  color-scheme: dark;
+
+  /* Glass, driven by the slider */
+  --blur: 28px;
+  --tint: .16;
+  --rim: .32;
+  --shine: .22;
+  --lift: .0;
+}
+html, body { background: var(--room); color: var(--ink); }
+[hidden] { display: none !important; }
+body { font-family: var(--sans); padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+header.page { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+header.page h1 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: clamp(30px, 5vw, 44px); line-height: 1; }
+header.page p { margin: 0; color: var(--faint); font-size: 14px; max-width: 60ch; }
+
+/* ---- TV ---- */
+.tv { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 14px; overflow: hidden; background: #000; box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0,0,0,.6); }
+.stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden; }
+.wall { position: absolute; inset: 0; transition: filter 900ms cubic-bezier(.2,.8,.2,1), transform 900ms cubic-bezier(.2,.8,.2,1); }
+/* Lock screen → home: the same picture, sharp on the screensaver, blurred and dimmed behind Home (like an iPhone wallpaper pair). */
+.stage.awake .wall { filter: blur(var(--homeBlur, 28px)) brightness(.72) saturate(1.25); transform: scale(1.08); }
+.scene { position: absolute; inset: -6%; background: center / cover no-repeat; }
+.scene .sky { position: absolute; inset: 0; background: linear-gradient(to bottom, #0d1b33 0%, #2b3d63 38%, #c47a5a 66%, #f0b27a 74%, #2a2230 75%); }
+.scene .ridge { position: absolute; left: 0; right: 0; bottom: 0; }
+.scene .r1 { height: 42%; background: #1d1a2a; clip-path: polygon(0 40%, 12% 22%, 24% 38%, 37% 12%, 50% 34%, 63% 18%, 76% 36%, 88% 20%, 100% 32%, 100% 100%, 0 100%); }
+.scene .r2 { height: 30%; background: #0f0d17; clip-path: polygon(0 30%, 18% 52%, 33% 26%, 48% 50%, 62% 30%, 80% 56%, 100% 34%, 100% 100%, 0 100%); }
+.scene.photo .sky, .scene.photo .ridge { display: none; }
+.homeui { position: absolute; inset: 0; transition: opacity 450ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
+.stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); pointer-events: none; }
+.stage:not(.awake) .shade { opacity: 0; }
+
+/* ---- Screensaver ---- */
+.saver { position: absolute; inset: 0; color: #fff; transition: opacity 400ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
+.stage.awake .saver { opacity: 0; transform: translateY(-30px); pointer-events: none; }
+.sv-date { position: absolute; top: 92px; left: 0; right: 0; text-align: center; font: 500 32px/1 var(--sans); text-shadow: 0 2px 18px rgba(0,0,0,.45); }
+.sv-time { position: absolute; top: 126px; left: 0; right: 0; height: 270px; font-family: var(--display); font-weight: 700; font-size: 230px; line-height: 1; letter-spacing: -.035em; }
+/* Frosted-glass digits: the picture blurred through the numbers, a soft shadow behind, a bright rim on top.
+   Each layer is masked to the clock's shape, drawn on a canvas so the glass follows the exact glyphs. */
+.sv-time .layer { position: absolute; left: 50%; top: 0; transform: translateX(-50%); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.sv-time .shadow { background: rgba(0,0,0,.16); filter: blur(22px); top: 6px; }
+.sv-time .frost { -webkit-backdrop-filter: blur(calc(var(--blur) * .8 + 6px)) saturate(1.8) brightness(1.18); backdrop-filter: blur(calc(var(--blur) * .8 + 6px)) saturate(1.8) brightness(1.18);
+  background: linear-gradient(175deg, rgba(255,255,255,calc(var(--tint) + .55)) 0%, rgba(255,255,255,calc(var(--tint) + .26)) 55%, rgba(255,255,255,calc(var(--tint) + .34)) 100%); }
+.sv-time .rim { background: rgba(255,255,255,.85); }
+.sv-time .plain { position: absolute; inset: 0; text-align: center; color: rgba(255,255,255,.9); }
+.sv-row { position: absolute; left: 72px; right: 72px; bottom: 60px; display: flex; align-items: stretch; gap: 18px; }
+.sv-wx { width: 330px; box-sizing: border-box; padding: 20px 24px; border-radius: 28px; display: flex; flex-direction: column; gap: 4px; font-family: var(--sans); background: rgba(16,16,20,calc(var(--tint) + .3)); }
+.sv-wx .city { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: rgba(255,255,255,.75); }
+.sv-wx .now { font-size: 64px; font-weight: 400; line-height: 1; }
+.sv-wx .cond { font-size: 17px; }
+.sv-wx .hl { font-size: 15px; color: rgba(255,255,255,.7); }
+.sv-wx .days { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); font-size: 15px; }
+.sv-wx .days span b { display: block; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.65); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
+.sv-news { flex: 1; min-width: 0; box-sizing: border-box; padding: 20px 26px; border-radius: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; font-family: var(--sans); background: rgba(16,16,20,calc(var(--tint) + .3)); }
+.sv-news .src { font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.7); display: flex; gap: 10px; align-items: center; }
+.sv-news .src i { width: 8px; height: 8px; border-radius: 50%; background: #FF453A; }
+.sv-news .hl { font-size: 26px; font-weight: 500; line-height: 1.3; transition: opacity 500ms ease; }
+.sv-news .more { font-size: 15px; color: rgba(255,255,255,.65); }
+.sv-hint { position: absolute; left: 0; right: 0; top: 380px; text-align: center; font: 500 16px var(--sans); color: rgba(255,255,255,.6); letter-spacing: .04em; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.thumbs button { width: 96px; height: 54px; padding: 0; border-radius: 10px; background: center / cover no-repeat #222; }
+.thumbs button[aria-pressed=true] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file { font: 14px var(--sans); color: var(--ink-2); }
+.wall .drift { position: absolute; inset: -6%; animation: drift 40s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: scale(1.02) translate(-1%, 0); } to { transform: scale(1.08) translate(1.5%, -1%); } }
+.shade { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 55%), linear-gradient(to right, rgba(0,0,0,.35), rgba(0,0,0,0) 50%); }
+
+.glass {
+  position: relative;
+  background: rgba(255,255,255,var(--tint));
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.6);
+  backdrop-filter: blur(var(--blur)) saturate(1.6);
+  border: 1px solid rgba(255,255,255,var(--rim));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,calc(var(--shine) * 2)), inset 0 -1px 0 rgba(255,255,255,calc(var(--shine) * .4)), 0 18px 40px rgba(0,0,0,.28);
+}
+/* Specular sheen across the top of every glass piece */
+.glass::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(170deg, rgba(255,255,255,var(--shine)) 0%, rgba(255,255,255,0) 38%); }
+.txt { text-shadow: 0 1px 12px rgba(0,0,0,var(--lift)); }
+
+.top { position: absolute; left: 72px; right: 72px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; }
+.greetBox { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.greet { font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 38px; line-height: 1.12; color: #fff; text-wrap: balance; }
+.greetSub { font-family: var(--sans); font-size: 21px; line-height: 1.3; color: rgba(255,255,255,.82); }
+.tabs { display: flex; gap: 4px; padding: 6px; border-radius: 999px; }
+.tabs span { padding: 12px 26px; border-radius: 999px; font-size: 19px; font-weight: 500; color: rgba(255,255,255,.85); }
+.tabs span.on { background: rgba(255,255,255,.92); color: #111; }
+.clock { display: flex; align-items: center; gap: 18px; padding: 14px 24px; border-radius: 999px; font-size: 19px; color: rgba(255,255,255,.9); }
+/* Wi-Fi: arcs light up with signal strength; dimmed arcs with a slash when offline. */
+.wifi { all: unset; display: inline-flex; cursor: pointer; margin-left: -4px; }
+.wifi svg { width: 26px; height: 26px; overflow: visible; }
+.wifi path { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; transition: opacity 200ms; }
+.wifi circle { fill: #fff; transition: opacity 200ms; }
+.wifi .slash { opacity: 0; stroke-width: 2.2; }
+.wifi[data-level="2"] .a3, .wifi[data-level="1"] .a3, .wifi[data-level="1"] .a2 { opacity: .28; }
+.wifi[data-level="0"] .a3, .wifi[data-level="0"] .a2, .wifi[data-level="0"] .a1, .wifi[data-level="0"] .a0 { opacity: .28; }
+.wifi[data-level="0"] .slash { opacity: 1; }
+.clock b { font-weight: 600; font-size: 22px; color: #fff; font-variant-numeric: tabular-nums; }
+.clock i { font-style: normal; color: rgba(255,255,255,.7); }
+
+.hero { position: absolute; left: 72px; right: 72px; bottom: 412px; display: flex; justify-content: space-between; align-items: flex-end; }
+.kicker { font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.78); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.kicker .dot { width: 11px; height: 11px; border-radius: 50%; }
+.hero h2 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 120px; line-height: 1; color: #fff; }
+.widgets { display: flex; align-items: stretch; gap: 16px; }
+.forecast { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+/* Calendar widget, after Apple's Up Next: red weekday, big date, events with calendar-color bars. */
+.cal { width: 380px; box-sizing: border-box; padding: 18px 22px 16px; border-radius: 28px; color: #fff; display: flex; flex-direction: column; gap: 9px; font-family: var(--sans); background: rgba(16,16,20,calc(var(--tint) + .34)); }
+.cal .head { display: flex; align-items: baseline; gap: 12px; }
+.cal .dow { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #FF453A; }
+.cal .num { font-size: 40px; font-weight: 500; line-height: .9; font-variant-numeric: tabular-nums; }
+.cal .group { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-top: 2px; }
+.cal .ev { display: grid; grid-template-columns: 5px 1fr; gap: 12px; align-items: stretch; }
+.cal .ev i { border-radius: 3px; }
+.cal .ev b { display: block; font-size: 18px; font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal .ev span { display: block; font-size: 15px; color: rgba(255,255,255,.7); font-variant-numeric: tabular-nums; }
+.cal .none { font-size: 16px; color: rgba(255,255,255,.7); }
+.fday { width: 270px; flex: 1; box-sizing: border-box; padding: 0 20px; border-radius: 20px; display: grid; grid-template-columns: 52px 112px 1fr; align-items: center; color: #fff; font-family: var(--sans); }
+.fday small { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.fday b { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fday b i { font-style: normal; font-size: 18px; color: rgba(255,255,255,.65); margin-left: 6px; }
+.fday span { font-size: 15px; color: rgba(255,255,255,.75); white-space: nowrap; text-align: right; }
+
+.scroll { position: absolute; left: 0; right: 0; top: 520px; transition: transform 360ms cubic-bezier(.2,.8,.2,1); }
+.hero { transition: opacity 300ms ease; }
+.stage.down .hero { opacity: 0; }
+.stage.down .shade { background: rgba(0,0,0,.45); }
+.shade { transition: background 400ms ease; }
+.shelf { padding: 0 0 0 72px; height: 284px; transition: opacity 300ms ease; }
+.shelf .label { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 18px; }
+.row { display: flex; gap: 36px; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
+.tile.sys { justify-content: flex-end; }
+.tile.moving { animation: jiggle 240ms ease-in-out infinite alternate; }
+@keyframes jiggle { from { transform: translateY(-8px) scale(1.12) rotate(-1.5deg); } to { transform: translateY(-8px) scale(1.12) rotate(1.5deg); } }
+.caption { margin-top: 16px; font-size: 18px; color: rgba(255,255,255,.8); }
+
+.sheet { position: absolute; inset: 0; display: flex; justify-content: flex-end; background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+.sheet.on { opacity: 1; pointer-events: auto; }
+.panel { width: 540px; margin: 28px; border-radius: 40px; padding: 36px 44px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 10px; color: #fff;
+  transform: translateX(40px); transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
+.sheet.on .panel { transform: none; }
+.panel .eyebrow { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.panel h4 { margin: 0 0 12px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 64px; line-height: 1; }
+.opt { padding: 15px 24px; border-radius: 999px; font-size: 22px; font-weight: 500; background: rgba(255,255,255,.08); transition: background 150ms, color 150ms, transform 200ms; }
+.opt.focus { background: rgba(255,255,255,.92); color: #111; transform: scale(1.03); }
+.panel .tip { margin: -6px 0 14px; padding: 16px 20px; border-radius: 20px; background: rgba(255,255,255,.1); font: 18px/1.4 var(--sans); color: rgba(255,255,255,.88); }
+.panel .tip b { display: block; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 4px; }
+.panel .hint { margin-top: 14px; font-size: 16px; color: rgba(255,255,255,.65); }
+
+.remote { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(3, 44px); gap: 4px; }
+.pad button { padding: 0; width: 44px; height: 44px; border-radius: 12px; font-size: 16px; }
+.pad .ok { border-radius: 50%; }
+.keys { font-size: 13px; color: var(--faint); line-height: 1.6; }
+.keys kbd { font: 12px var(--mono); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--ink-2); }
+.tile { flex: none; width: 288px; height: 164px; border-radius: 30px; display: flex; flex-direction: column; justify-content: space-between; padding: 20px 22px; box-sizing: border-box; color: #fff; font-size: 20px; font-weight: 500;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease; }
+.tile .mark { width: 34px; height: 34px; border-radius: 10px; }
+.top .clock, .top .tabs { flex: none; white-space: nowrap; }
+
+/* App icon tiles: the app's own colors and mark, with the glass rim and sheen on top. */
+.tile.app { padding: 0; align-items: center; justify-content: center; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: rgba(255,255,255,calc(var(--rim) * .9)); }
+.tile.app .logo { width: 116px; height: 116px; display: block; }
+.tile.app .word.long { font-size: 38px; }
+.tile.app .word { font: 700 50px/1 var(--sans); letter-spacing: -.02em; white-space: nowrap; }
+.tile.app .tname { bottom: -46px; }
+.tile.focus { transform: translateY(-8px) scale(1.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 28px 50px rgba(0,0,0,.45); border-color: rgba(255,255,255,.7); }
+.tile.focus::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.28) 48%, rgba(255,255,255,0) 66%); animation: sheen 1.1s ease-out both; }
+@keyframes sheen { from { transform: translateX(-60%); opacity: 1; } to { transform: translateX(60%); opacity: 0; } }
+.tname { position: absolute; left: 0; right: 0; bottom: -44px; text-align: center; font-size: 18px; color: #fff; opacity: 0; transition: opacity 200ms; }
+.tile.focus .tname { opacity: 1; }
+
+/* ---- Controls ---- */
+.controls { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .controls { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card h3 { margin: 0; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--faint); font-weight: 500; }
+.dial { display: flex; align-items: center; gap: 14px; }
+.dial span { font-size: 14px; color: var(--ink-2); white-space: nowrap; }
+input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); height: 28px; }
+.readout { font: 13px var(--mono); color: var(--faint); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.readout b { color: var(--ink-2); font-weight: 400; }
+.presets { display: flex; flex-wrap: wrap; gap: 8px; }
+button { font: 500 14px var(--sans); color: var(--ink); background: #1E1E24; border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; cursor: pointer; }
+button:hover { border-color: #44444C; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed=true] { background: var(--accent); color: #111; border-color: var(--accent); }
+.walls { display: flex; flex-direction: column; gap: 12px; }
+.group { display: flex; flex-direction: column; gap: 8px; }
+.group small { font-size: 12px; color: var(--faint); letter-spacing: .1em; text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 6px; }
+.chip i { width: 26px; height: 26px; border-radius: 50%; display: inline-block; flex: none; }
+.note { font-size: 13px; color: var(--faint); line-height: 1.5; margin: 0; }
+.hint { font-size: 13px; color: var(--faint); }
+.subs { border-radius: 12px; padding: 34px 16px 18px; text-align: center; background: linear-gradient(160deg, #23324a, #0c1018 70%); }
+.subs span { display: inline-block; font-family: var(--sans); font-size: clamp(18px, 2.6vw, 26px); font-weight: 500; line-height: 1.35; color: #fff; text-shadow: 0 2px 6px rgba(0,0,0,.9); }
+.stage.bigtext .greetSub { font-size: 24px; } .stage.bigtext .clock { font-size: 22px; } .stage.bigtext .cal .ev b { font-size: 20px; } .stage.bigtext .tname { font-size: 21px; }
+.stage.bigtext .srow2 .l { font-size: 24px; }
+.stage.bigtext .srow2 .s { font-size: 17px; }
+/* ---- Settings screen (tvOS-style: categories left, settings right) ---- */
+.setscreen { position: absolute; inset: 0; display: none; color: #fff; }
+.stage.awake.insettings .setscreen { display: block; animation: setIn 320ms cubic-bezier(.2,.8,.2,1); }
+@keyframes setIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.stage.insettings .homeui { opacity: 0; pointer-events: none; }
+.stage.awake.insettings .wall { filter: blur(calc(var(--homeBlur, 28px) + 14px)) brightness(.58) saturate(1.2); }
+.set-title { position: absolute; left: 72px; top: 54px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 60px; line-height: 1; }
+.set-cats { position: absolute; left: 72px; top: 150px; bottom: 56px; width: 392px; box-sizing: border-box; padding: 14px; border-radius: 36px; display: flex; flex-direction: column; gap: 4px; }
+.set-cat { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 999px; font: 500 21px var(--sans); transition: background 150ms, color 150ms; }
+.set-cat i { width: 30px; height: 30px; border-radius: 9px; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.set-cat.sel { background: rgba(255,255,255,.14); }
+.set-cat.focus { background: rgba(255,255,255,.92); color: #111; }
+.set-detail { position: absolute; left: 492px; right: 72px; top: 54px; bottom: 56px; box-sizing: border-box; padding: 34px 40px; border-radius: 40px; overflow: hidden; }
+.set-detail h3 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 42px; line-height: 1.1; }
+.set-detail .lede { margin: 6px 0 18px; font: 17px/1.4 var(--sans); color: rgba(255,255,255,.7); }
+.set-view { position: absolute; left: 40px; right: 40px; top: 128px; bottom: 30px; overflow: hidden; }
+.set-rows { display: flex; flex-direction: column; gap: 8px; transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+.set-tip { padding: 14px 20px; border-radius: 20px; background: rgba(255,255,255,.1); font: 18px/1.4 var(--sans); color: rgba(255,255,255,.88); margin-bottom: 4px; }
+.set-tip b { display: block; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 3px; }
+.set-sec { font: 700 13px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); margin: 10px 0 0 6px; }
+.srow2 { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 62px; box-sizing: border-box; padding: 10px 22px; border-radius: 22px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.srow2 .l { font: 500 21px var(--sans); display: flex; align-items: center; gap: 10px; }
+.srow2 .l i { width: 12px; height: 12px; border-radius: 50%; }
+.srow2 .s { font: 15px var(--sans); color: rgba(255,255,255,.62); margin-top: 3px; }
+.srow2 .v { font: 500 19px var(--sans); color: rgba(255,255,255,.85); white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+.srow2 .chev { opacity: 0; font-size: 16px; }
+.srow2.focus { background: rgba(255,255,255,.92); color: #111; transform: scale(1.01); }
+.srow2.focus .s { color: rgba(0,0,0,.55); }
+.srow2.focus .v { color: #111; }
+.srow2.focus .chev { opacity: .55; }
+.switch { width: 54px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.25); position: relative; transition: background 200ms; flex: none; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform 200ms; }
+.switch.on { background: #30D158; }
+.switch.on::after { transform: translateX(22px); }
+.srow2.focus .switch:not(.on) { background: rgba(0,0,0,.2); }
+.set-toast { position: absolute; left: 40px; right: 40px; bottom: 26px; padding: 14px 20px; border-radius: 18px; background: rgba(0,0,0,.45); font: 17px var(--sans); opacity: 0; transform: translateY(8px); transition: opacity 250ms, transform 250ms; pointer-events: none; }
+.set-toast.on { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) { .wall .drift, .tile.focus::after { animation: none; } .wall, .homeui, .saver { transition: none; } .tile { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <h1>Griffin Home</h1>
+    <p>Mockup of the screensaver and home screen. It opens on the screensaver; press any button to blur into Home. Add your own pictures below.</p>
+  </header>
+
+  <div class="tv" id="tv">
+    <div class="stage" id="stage">
+      <div class="wall" id="wall"><div class="scene drift" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div></div></div>
+      <div class="shade"></div>
+
+      <div class="saver" id="saver">
+        <div class="sv-date" id="svDate"></div>
+        <div class="sv-time" id="svTime"></div>
+        <div class="sv-row">
+          <div class="sv-wx glass" id="svWx"></div>
+          <div class="cal glass" id="svCal" aria-label="Calendar"></div>
+          <div class="sv-news glass" id="svNews">
+            <div class="src"><i></i><span id="newsSrc"></span></div>
+            <div class="hl" id="newsHl"></div>
+            <div class="more" id="newsMore"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="homeui">
+
+      <div class="top">
+        <div class="greetBox txt"><span class="greet" id="greet">Welcome back, Griffin</span><span class="greetSub" id="greetSub"></span></div>
+        <div class="tabs glass"><span class="on">Home</span><span>Apps</span><span>Claude</span><span>Settings</span></div>
+        <div class="clock glass txt"><i>54° partly cloudy · Chicago</i><span id="date">Monday, Oct 26</span><b id="time">7:42 PM</b><button class="wifi" id="wifi" type="button" aria-label="Wi-Fi: strong signal" title="Click to preview other signal levels"><svg viewBox="0 0 24 24" aria-hidden="true"><path class="a3" d="M2.6 9.2a13.4 13.4 0 0 1 18.8 0"/><path class="a2" d="M5.7 12.4a9 9 0 0 1 12.6 0"/><path class="a1" d="M8.8 15.6a4.6 4.6 0 0 1 6.4 0"/><circle class="a0" cx="12" cy="19" r="1.7"/><path class="slash" d="M4 4l16 16"/></svg></button></div>
+      </div>
+
+      <div class="hero">
+        <div class="txt">
+          <div class="kicker"><span class="dot" id="heroDot"></span><span id="heroKicker">Favorite</span></div>
+          <h2 id="heroTitle">Netflix</h2>
+          <div class="caption" id="heroCaption"></div>
+        </div>
+        <div class="widgets">
+        <div class="forecast">
+          <div class="fday glass txt"><small>Tue</small><b>61°<i>47°</i></b><span>light rain</span></div>
+          <div class="fday glass txt"><small>Wed</small><b>55°<i>40°</i></b><span>overcast</span></div>
+          <div class="fday glass txt"><small>Thu</small><b>49°<i>36°</i></b><span>clear</span></div>
+        </div>
+        <div class="cal glass txt" id="cal" aria-label="Calendar"></div>
+        </div>
+      </div>
+
+      <div class="scroll" id="scroll"></div>
+
+      <div class="sheet" id="sheet">
+        <div class="panel glass">
+          <div class="eyebrow" id="sheetKicker">Favorite</div>
+          <h4 id="sheetTitle">Netflix</h4>
+          <div class="tip" id="sheetTip" hidden><b>Tip</b>Hold OK on any app for options: open, move, remove from Favorites, or hide it.</div>
+          <div id="sheetList" style="display:flex;flex-direction:column;gap:12px"></div>
+          <div class="hint">Back to close</div>
+        </div>
+      </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Remote</h3>
+    <div class="remote">
+      <div class="pad" aria-label="D-pad">
+        <span></span><button data-k="up" aria-label="Up">▲</button><span></span>
+        <button data-k="left" aria-label="Left">◀</button><button data-k="ok" class="ok" aria-label="OK">OK</button><button data-k="right" aria-label="Right">▶</button>
+        <span></span><button data-k="down" aria-label="Down">▼</button><span></span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button data-k="hold">Hold OK · options</button>
+        <button data-k="back">Back</button>
+        <button id="sleep">Show screensaver</button>
+      </div>
+      <div class="keys">Keyboard: <kbd>←</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>↓</kbd> move, <kbd>Enter</kbd> OK, <kbd>H</kbd> hold OK, <kbd>Esc</kbd> back.<br>On the screensaver, any button goes to Home. Hold OK on a favorite → Move to rearrange it.</div>
+    </div>
+  </div>
+
+  <section class="card" aria-labelledby="typeH">
+    <h3 id="typeH">Type</h3>
+    <div class="group"><small>Headlines · greeting, app name, panel titles</small><div class="chips" id="fonts"></div></div>
+    <p class="note" id="fontNote"></p>
+    <div class="group"><small>Everyday UI, navigation &amp; subtitles</small><div class="chips" id="uiFonts"></div></div>
+    <p class="note" id="uiNote"></p>
+    <div class="subs" aria-label="Subtitle preview"><span id="subLine">We’re not leaving until the storm passes.<br>Pull the car around back.</span></div>
+  </section>
+
+  <div class="controls">
+    <section class="card" aria-labelledby="glassH">
+      <h3 id="glassH">Glass</h3>
+      <div class="dial">
+        <span>Frosted</span>
+        <input type="range" id="glass" min="0" max="100" value="35" aria-label="Glass, from frosted to clear">
+        <span>Clear</span>
+      </div>
+      <div class="presets">
+        <button data-p="0">Frosted</button>
+        <button data-p="35">Balanced</button>
+        <button data-p="70">Light</button>
+        <button data-p="100">Clear</button>
+      </div>
+      <div class="readout" id="readout"></div>
+      <p class="note">One dial moves blur, tint and edge glow together. Text gets a soft shadow as the glass clears so it stays readable, the same trick Apple uses.</p>
+    </section>
+
+    <section class="card" aria-labelledby="wallH">
+      <h3 id="wallH">Pictures</h3>
+      <label class="file" for="pics">Add your pictures or scenes: <input type="file" id="pics" accept="image/*" multiple></label>
+      <div class="thumbs" id="thumbs"></div>
+      <p class="note">They stay in this browser tab; nothing is uploaded. Until you add some, a plain placeholder scene shows.</p>
+      <div class="dial"><span>Home blur</span><input type="range" id="homeBlur" min="0" max="48" value="28" aria-label="How much the picture blurs behind Home"><span id="homeBlurV">28px</span></div>
+      <div class="group"><small>Greeting · preview another time</small>
+        <div class="presets" id="when">
+          <button data-w="now">Now</button><button data-w="morning">Morning</button><button data-w="afternoon">Afternoon</button>
+          <button data-w="evening">Evening</button><button data-w="late">Late night</button><button data-w="friday">Friday night</button><button data-w="saturday">Saturday</button>
+        </div>
+        <div class="presets"><button id="shuffle">Shuffle greeting</button></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  // App icons: brand marks from Simple Icons (CC0) on each app's own icon colors. Apps without a mark
+  // there get a wordmark. On the TV, Griffin Home uses the icon each installed app ships with instead.
+  var LOGOS = {"Netflix": "m5.398 0 8.348 23.602c2.346.059 4.856.398 4.856.398L10.113 0H5.398zm8.489 0v9.172l4.715 13.33V0h-4.715zM5.398 1.5V24c1.873-.225 2.81-.312 4.715-.398V14.83L5.398 1.5z", "YouTube": "M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z", "Apple TV": "M20.57 17.735h-1.815l-3.34-9.203h1.633l2.02 5.987c.075.231.273.9.586 2.012l.297-.997.33-1.006 2.094-6.004H24zm-5.344-.066a5.76 5.76 0 0 1-1.55.207c-1.23 0-1.84-.693-1.84-2.087V9.646h-1.063V8.532h1.121V7.081l1.476-.602v2.062h1.707v1.113H13.38v5.805c0 .446.074.75.214.932.14.182.396.264.75.264.207 0 .495-.041.883-.115zm-7.29-5.343c.017 1.764 1.55 2.358 1.567 2.366-.017.042-.248.842-.808 1.658-.487.71-.99 1.418-1.79 1.435-.783.016-1.03-.462-1.93-.462-.89 0-1.17.445-1.913.478-.758.025-1.344-.775-1.838-1.484-.998-1.451-1.765-4.098-.734-5.88.51-.89 1.426-1.451 2.416-1.46.75-.016 1.468.512 1.93.512.461 0 1.327-.627 2.234-.536.38.016 1.452.157 2.136 1.154-.058.033-1.278.743-1.27 2.219M6.468 7.988c.404-.495.685-1.18.61-1.864-.585.025-1.294.388-1.723.883-.38.437-.71 1.138-.619 1.806.652.05 1.328-.338 1.732-.825Z", "HBO Max": "M3.784 8.716c-.655 0-1.32.29-2.173.946v-.78H0v6.236h1.715V11.24c.749-.592 1.091-.78 1.372-.78.333 0 .551.209.551.729v3.928h1.715V11.23c.748-.582 1.081-.769 1.372-.769.333 0 .55.208.55.728v3.928H8.99v-4.53c0-1.403-.8-1.871-1.57-1.871-.654 0-1.32.27-2.192.936-.28-.697-.894-.936-1.444-.936zm8.689 0c-1.705 0-3.118 1.466-3.118 3.284 0 1.82 1.413 3.285 3.118 3.285.842 0 1.57-.312 2.131-.988v.82h1.632V8.883h-1.632v.822c-.561-.676-1.29-.988-2.131-.988zm4.064.166c.707 1.102 1.507 2.09 2.443 3.077a26.593 26.593 0 0 0-2.443 3.16h2.069a13.603 13.603 0 0 1 1.673-2.183 14.067 14.067 0 0 1 1.632 2.182H24a25.142 25.142 0 0 0-2.432-3.16A23.918 23.918 0 0 0 24 8.883h-2.047a14.65 14.65 0 0 1-1.674 2.11 13.357 13.357 0 0 1-1.674-2.11zm-3.804 1.279c1.018 0 1.84.82 1.84 1.84a1.837 1.837 0 0 1-1.84 1.839c-1.019 0-1.84-.82-1.84-1.84 0-1.018.821-1.84 1.84-1.84zm0 .415c-.78 0-1.414.633-1.414 1.423s.634 1.424 1.413 1.424c.78 0 1.414-.634 1.414-1.424s-.634-1.424-1.414-1.424z", "Tubi": "M16.696 15.272v-.752c.4.548 1.107.917 1.934.917 1.475 0 2.28-.956 2.28-2.865 0-1.714-.893-2.858-2.235-2.858-.851 0-1.55.347-1.979.908v-2.06h-2.674v6.71zm1.57-2.614c0 .827-.337 1.275-.827 1.275-.486 0-.837-.452-.837-1.275s.342-1.28.837-1.28c.495 0 .828.452.828 1.28zM6.94 9.988v3.6c0 1.236.754 1.841 1.955 1.841.959 0 1.625-.396 2.028-1.064v.91h2.597V9.989h-2.675v3.14c0 .493-.346.693-.666.693-.321 0-.568-.192-.568-.655V9.989Zm14.39 0H24v5.276h-2.67ZM6.553 11.136c0 .781-.635 1.415-1.42 1.415-.783 0-1.419-.634-1.419-1.415 0-.782.636-1.415 1.42-1.415.784 0 1.42.633 1.42 1.415zM3.49 9.702v2.668c.005.653.327.924.976.924.225 0 .526-.053.672-.166v1.931c-.49.243-.869.378-1.535.378 0 0-.069 0-.18-.006l-.003.006c-1.614 0-2.51-1.035-2.482-2.686v-.47H0V9.99h.92V8.563h2.569Z", "Plex": "M3.987 8.409c-.96 0-1.587.28-2.12.933v-.72H0v8.88s.038.018.127.037c.138.03.821.187 1.331-.249.441-.377.542-.814.542-1.318v-1.283c.533.573 1.147.813 2 .813 1.84 0 3.253-1.493 3.253-3.48 0-2.12-1.36-3.613-3.266-3.613Zm16.748 5.595.406.591c.391.614.894.906 1.492.908.621-.012 1.064-.562 1.226-.755 0 0-.307-.27-.686-.72-.517-.614-1.214-1.755-1.24-1.803l-1.198 1.779Zm-3.205-1.955c0-2.08-1.52-3.64-3.52-3.64s-3.467 1.587-3.467 3.573a3.48 3.48 0 0 0 3.507 3.52c1.413 0 2.626-.84 3.253-2.293h-2.04l-.093.093c-.427.4-.72.533-1.227.533-.787 0-1.373-.506-1.453-1.266h4.986c.04-.214.054-.307.054-.52Zm-7.671-.219c0 .769.11 1.701.868 2.722l.056.069c-.306.526-.742.88-1.248.88-.399 0-.814-.211-1.138-.579a2.177 2.177 0 0 1-.538-1.441V6.409H9.86l-.001 5.421Zm9.283 3.46h-2.39l2.247-3.332-2.247-3.335h2.39l2.248 3.335-2.248 3.332Zm1.593-1.286Zm-17.162-.342c-.933 0-1.68-.773-1.68-1.72s.76-1.666 1.68-1.666c.92 0 1.68.733 1.68 1.68 0 .946-.733 1.706-1.68 1.706Zm18.361-1.974L24 8.622h-2.391l-.87 1.293 1.195 1.773Zm-9.404-.466c.16-.706.72-1.133 1.493-1.133.773 0 1.373.467 1.507 1.133h-3Z", "Spotify": "M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z", "Claude": "m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z"};
+  var APPS = [
+    { name: 'Netflix', color: '#E50914', bg: '#000000', fg: '#E50914' },
+    { name: 'YouTube', color: '#FF0000', bg: '#FFFFFF', fg: '#FF0000' },
+    { name: 'Apple TV', color: '#C7C7CC', bg: '#000000', fg: '#FFFFFF' },
+    { name: 'Peacock', color: '#F5B700', bg: '#000000', fg: '#FFFFFF', word: 'peacock' },
+    { name: 'HBO Max', color: '#3D5AFE', bg: 'linear-gradient(140deg, #0A1A6B, #000000 70%)', fg: '#FFFFFF' },
+    { name: 'Tubi', color: '#7408FF', bg: '#7408FF', fg: '#FFFFFF' },
+    { name: 'Claude', color: '#D97757', bg: '#D97757', fg: '#FFFFFF' }
+  ];
+
+  function $(id) { return document.getElementById(id); }
+  function load(k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  // Fit the 1600x900 stage into the frame.
+  var tv = $('tv'), stage = $('stage');
+  function fit() { stage.style.transform = 'scale(' + (tv.clientWidth / 1600) + ')'; }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(tv); else window.addEventListener('resize', fit);
+  fit();
+
+  // ---- Glass dial ----
+  var root = document.documentElement;
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function setGlass(v) {
+    var t = v / 100;
+    var blur = Math.round(lerp(40, 2, t)), tint = lerp(.24, .03, t), rim = lerp(.36, .2, t), shine = lerp(.26, .14, t), lift = lerp(0, .55, t);
+    root.style.setProperty('--blur', blur + 'px');
+    root.style.setProperty('--tint', tint.toFixed(3));
+    root.style.setProperty('--rim', rim.toFixed(3));
+    root.style.setProperty('--shine', shine.toFixed(3));
+    root.style.setProperty('--lift', lift.toFixed(3));
+    $('glass').value = v;
+    $('readout').innerHTML = '<span>dial <b>' + v + '</b></span><span>blur <b>' + blur + 'px</b></span><span>tint <b>' + Math.round(tint * 100) + '%</b></span><span>edge <b>' + Math.round(rim * 100) + '%</b></span><span>text shadow <b>' + Math.round(lift * 100) + '%</b></span>';
+    document.querySelectorAll('[data-p]').forEach(function (b) { b.setAttribute('aria-pressed', String(+b.dataset.p === +v)); });
+    save('glass', v);
+  }
+  $('glass').addEventListener('input', function () { setGlass(+this.value); });
+  document.querySelectorAll('[data-p]').forEach(function (b) { b.addEventListener('click', function () { setGlass(+b.dataset.p); }); });
+
+  // ---- Pictures: yours, or a placeholder scene ----
+  var pics = [];
+  function setPic(i) {
+    var sc = $('scene');
+    if (i < 0) { sc.classList.remove('photo'); sc.style.backgroundImage = ''; }
+    else { sc.classList.add('photo'); sc.style.backgroundImage = 'url("' + pics[i] + '")'; }
+    document.querySelectorAll('#thumbs button').forEach(function (b, j) { b.setAttribute('aria-pressed', String(j - 1 === i)); });
+  }
+  function drawThumbs() {
+    var t = $('thumbs');
+    t.innerHTML = '';
+    var ph = document.createElement('button');
+    ph.textContent = 'Placeholder';
+    ph.style.fontSize = '12px';
+    ph.addEventListener('click', function () { setPic(-1); });
+    t.appendChild(ph);
+    pics.forEach(function (u, i) {
+      var b = document.createElement('button');
+      b.style.backgroundImage = 'url("' + u + '")';
+      b.setAttribute('aria-label', 'Picture ' + (i + 1));
+      b.addEventListener('click', function () { setPic(i); });
+      t.appendChild(b);
+    });
+  }
+  $('pics').addEventListener('change', function () {
+    Array.prototype.forEach.call(this.files, function (f) { pics.push(URL.createObjectURL(f)); });
+    drawThumbs();
+    if (pics.length) setPic(pics.length - 1);
+  });
+  drawThumbs(); setPic(-1);
+  $('homeBlur').addEventListener('input', function () {
+    root.style.setProperty('--homeBlur', this.value + 'px');
+    $('homeBlurV').textContent = this.value + 'px';
+  });
+
+  // ---- Shelves: Favorites, All apps, System ----
+  var ALL = APPS.concat([
+    { name: 'Pluto TV', color: '#FFF200', bg: '#000000', fg: '#FFF200', word: 'pluto tv' },
+    { name: 'Prime Video', color: '#00A8E1', bg: '#00A8E1', fg: '#FFFFFF', word: 'prime video' },
+    { name: 'Plex', color: '#EBAF00', bg: '#1F1F1F', fg: '#EBAF00' },
+    { name: 'Spotify', color: '#1ED760', bg: '#000000', fg: '#1ED760' },
+    { name: 'Crossy Road', color: '#7BD389', bg: '#5CC46E', fg: '#FFFFFF', word: 'Crossy Road' },
+    { name: 'Fawesome', color: '#2EC4B6', bg: '#16233A', fg: '#2EC4B6', word: 'fawesome' }
+  ]);
+  var favs = APPS.map(function (a) { return a.name; });
+  var SYS = [
+    { name: 'Screensaver', caption: 'Gargantua, aerials and film stills, right now' },
+    { name: 'Settings', caption: 'Glass, wallpaper, home guard, hidden apps' },
+    { name: 'TV settings', caption: 'Fire OS settings: network, display, inputs' },
+    { name: 'Amazon home', caption: 'Amazon’s home for 10 minutes: inputs, app library' }
+  ];
+  function byName(n) { for (var i = 0; i < ALL.length; i++) if (ALL[i].name === n) return ALL[i]; }
+  var shelves, st = { r: 0, col: [0, 0, 0], moving: false, sheet: null, opt: 0 };
+
+  function build() {
+    shelves = [
+      { label: 'Favorites', kind: 'Favorite', items: favs.map(byName) },
+      { label: 'All apps', kind: 'App', items: ALL.filter(function (a) { return favs.indexOf(a.name) < 0; }) },
+      { label: 'System', kind: 'System', items: SYS, sys: true }
+    ];
+    var root = $('scroll');
+    root.innerHTML = '';
+    shelves.forEach(function (sh, r) {
+      var el = document.createElement('div');
+      el.className = 'shelf';
+      el.innerHTML = '<div class="label txt"></div><div class="row"></div>';
+      el.firstChild.textContent = sh.label;
+      sh.el = el; sh.row = el.lastChild; sh.off = 0;
+      sh.tiles = sh.items.map(function (a, i) {
+        var t = document.createElement('div');
+        t.className = 'tile glass' + (sh.sys ? ' sys' : '');
+        if (sh.sys) {
+          t.innerHTML = '<span class="txt"></span><span class="tname txt"></span>';
+          t.firstChild.textContent = a.name;
+        } else {
+          t.classList.add('app');
+          t.style.background = a.bg;
+          if (LOGOS[a.name]) {
+            t.innerHTML = '<svg class="logo" viewBox="0 0 24 24" aria-hidden="true"><path></path></svg><span class="tname txt"></span>';
+            t.querySelector('path').setAttribute('d', LOGOS[a.name]);
+            t.querySelector('path').setAttribute('fill', a.fg);
+          } else {
+            t.innerHTML = '<span class="word"></span><span class="tname txt"></span>';
+            t.firstChild.textContent = a.word;
+            if (a.word.length > 8) t.firstChild.classList.add('long');
+            t.firstChild.style.color = a.fg;
+          }
+          t.querySelector('.tname').textContent = a.name;
+        }
+        t.addEventListener('click', function () { st.r = r; st.col[r] = i; render(); });
+        sh.row.appendChild(t);
+        return t;
+      });
+      st.col[r] = Math.min(st.col[r], sh.items.length - 1);
+      root.appendChild(el);
+    });
+  }
+
+  function render() {
+    var sh = shelves[st.r], i = st.col[st.r], it = sh.items[i];
+    shelves.forEach(function (s, r) {
+      s.el.style.opacity = r < st.r - 1 ? 0 : 1;   // rows that scroll up under the greeting fade out
+      s.tiles.forEach(function (t, j) {
+        var on = r === st.r && j === st.col[r];
+        t.classList.toggle('focus', on);
+        t.classList.toggle('moving', on && st.moving);
+      });
+    });
+    // Slide the row to keep focus in the safe area, and the page to keep the row on screen.
+    var tile = sh.tiles[i], W = 1600 - 72 * 2, x = tile.offsetLeft;
+    if (x - sh.off < 0) sh.off = x;
+    if (x + tile.offsetWidth - sh.off > W) sh.off = x + tile.offsetWidth - W;
+    sh.row.style.transform = 'translateX(' + (-sh.off) + 'px)';
+    var y = st.r === 0 ? 0 : st.r * 284 - 150;
+    $('scroll').style.transform = 'translateY(' + (-y) + 'px)';
+    stage.classList.toggle('down', st.r > 0);
+
+    $('heroTitle').textContent = it.name;
+    $('heroKicker').textContent = st.moving ? 'Moving' : sh.kind;
+    $('heroKicker').parentNode.hidden = st.r === 0 && !st.moving;   // the Favorites row needs no label
+    $('heroDot').style.background = sh.sys ? '#8C8A85' : it.color;
+    $('heroCaption').textContent = st.moving ? '◀ ▶ to move · OK when it’s in place' : sh.sys ? it.caption : '';
+  }
+
+  function openSheet() {
+    var sh = shelves[st.r], it = sh.items[st.col[st.r]];
+    if (sh.sys) return;
+    var fav = st.r === 0;
+    st.sheet = [{ label: 'Open', run: closeSheet }].concat(fav ? [
+      { label: 'Move', run: function () { closeSheet(); st.moving = true; render(); } },
+      { label: 'Remove from Favorites', run: function () { favs.splice(favs.indexOf(it.name), 1); closeSheet(); build(); render(); } }
+    ] : [
+      { label: 'Add to Favorites', run: function () { favs.push(it.name); closeSheet(); build(); st.r = 0; st.col[0] = favs.length - 1; render(); } },
+      { label: 'Hide', run: closeSheet }
+    ]);
+    st.opt = 0;
+    $('sheetKicker').textContent = sh.kind;
+    $('sheetTitle').textContent = it.name;
+    $('sheetTip').hidden = true;
+    $('sheet').classList.add('on');
+    renderSheet();
+  }
+  // Settings (sketch): the tip up top, then the main settings.
+  function openSettings() {
+    st.sheet = ['Glass', 'Pictures', 'Screensaver', 'News topics', 'Calendar', 'Hidden apps', 'Home guard'].map(function (l) { return { label: l, run: closeSheet }; });
+    st.opt = 0;
+    $('sheetKicker').textContent = 'System';
+    $('sheetTitle').textContent = 'Settings';
+    $('sheetTip').hidden = false;
+    $('sheet').classList.add('on');
+    renderSheet();
+  }
+  function renderSheet() {
+    var list = $('sheetList');
+    list.innerHTML = '';
+    st.sheet.forEach(function (o, i) {
+      var d = document.createElement('div');
+      d.className = 'opt' + (i === st.opt ? ' focus' : '');
+      d.textContent = o.label;
+      d.addEventListener('click', function () { st.opt = i; o.run(); });
+      list.appendChild(d);
+    });
+  }
+  function closeSheet() { st.sheet = null; $('sheet').classList.remove('on'); }
+
+  function move(d) {
+    var i = st.col[0], j = i + d;
+    if (j < 0 || j >= favs.length) return;
+    var t = favs[i]; favs[i] = favs[j]; favs[j] = t;
+    build(); st.col[0] = j;
+  }
+
+  // Screensaver ↔ Home. Any button wakes, like the TV.
+  function wake() { stage.classList.add('awake'); render(); }
+  function sleep() { closeSheet(); st.moving = false; stage.classList.remove('awake'); renderSaver(); }
+  $('sleep').addEventListener('click', sleep);
+  tv.addEventListener('click', function () { if (!stage.classList.contains('awake')) wake(); });
+
+  function key(k) {
+    if (!stage.classList.contains('awake')) return wake();
+    if (stage.classList.contains('insettings')) return setKey(k);
+    if (st.sheet) {
+      if (k === 'up') st.opt = Math.max(0, st.opt - 1);
+      else if (k === 'down') st.opt = Math.min(st.sheet.length - 1, st.opt + 1);
+      else if (k === 'ok') return st.sheet[st.opt].run();
+      else if (k === 'back') return closeSheet();
+      return renderSheet();
+    }
+    if (st.moving) {
+      if (k === 'left' || k === 'right') move(k === 'right' ? 1 : -1);
+      else if (k === 'ok' || k === 'back' || k === 'hold') st.moving = false;
+      return render();
+    }
+    if (k === 'up') st.r = Math.max(0, st.r - 1);
+    else if (k === 'down') st.r = Math.min(shelves.length - 1, st.r + 1);
+    else if (k === 'left') st.col[st.r] = Math.max(0, st.col[st.r] - 1);
+    else if (k === 'right') st.col[st.r] = Math.min(shelves[st.r].items.length - 1, st.col[st.r] + 1);
+    else if (k === 'hold') return openSheet();
+    else if (k === 'ok' && shelves[st.r].sys && shelves[st.r].items[st.col[st.r]].name === 'Screensaver') return sleep();
+    else if (k === 'ok' && shelves[st.r].sys && shelves[st.r].items[st.col[st.r]].name === 'Settings') return openSet();
+    else if (k === 'back') { st.r = 0; st.col[0] = 0; }
+    render();
+  }
+  document.querySelectorAll('[data-k]').forEach(function (b) { b.addEventListener('click', function () { key(b.dataset.k); }); });
+  var MAP = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back', h: 'hold', H: 'hold' };
+  document.addEventListener('keydown', function (e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' && e.key === 'Enter') return;
+    if (MAP[e.key]) { e.preventDefault(); key(MAP[e.key]); }
+  });
+
+  // ---- Calendar: sample events, placed around today. On the TV these come from Google Calendar. ----
+  var CALS = { personal: '#0A84FF', health: '#30D158', errands: '#FF9F0A', sports: '#64D2FF', holidays: '#BF5AF2' };
+  function events(now) {
+    var y = now.getFullYear(), base = new Date(y, now.getMonth(), now.getDate());
+    function on(days, h, m, mins, title, cal) { var s0 = new Date(base); s0.setDate(base.getDate() + days); s0.setHours(h, m, 0, 0); return { start: s0, end: new Date(+s0 + mins * 6e4), title: title, color: CALS[cal], cal: cal }; }
+    var sunday = (7 - base.getDay()) % 7 || 7;
+    var list = [
+      on(0, 19, 30, 90, 'Dinner with Sam', 'personal'),
+      on(1, 9, 15, 45, 'Dentist', 'errands'),
+      on(1, 18, 0, 60, 'Gym', 'health'),
+      on(2, 20, 0, 120, 'Movie night', 'personal'),
+      on(sunday, 12, 0, 180, 'Bears at Packers', 'sports')
+    ];
+    var hw = new Date(y, 9, 31);
+    if (hw >= base) list.push({ start: hw, end: new Date(y, 10, 1), title: 'Halloween', color: CALS.holidays, cal: 'holidays', allDay: true });
+    return list.filter(function (e) { return e.end > now && (!prefs || prefs.cals[e.cal] !== false); }).sort(function (a, b) { return a.start - b.start; });
+  }
+  function dayLabel(d, now) {
+    var a = new Date(now.getFullYear(), now.getMonth(), now.getDate()), b = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var n = Math.round((b - a) / 864e5);
+    return n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : DAYS[d.getDay()];
+  }
+  function clock(d) { return timeText(d); }
+  function timeText(d) { return d.toLocaleTimeString([], prefs && prefs.clock24 ? { hour: '2-digit', minute: '2-digit', hour12: false } : { hour: 'numeric', minute: '2-digit' }); }
+  function renderCal(now, el) {
+    el = el || $('cal');
+    var list = events(now).slice(0, 3), last = '';
+    el.innerHTML = '<div class="head"><span class="dow"></span><span class="num"></span></div>';
+    el.querySelector('.dow').textContent = DAYS[now.getDay()];
+    el.querySelector('.num').textContent = now.getDate();
+    if (!list.length) { var n = document.createElement('div'); n.className = 'none'; n.textContent = 'No more events today'; el.appendChild(n); }
+    list.forEach(function (e) {
+      var g = dayLabel(e.start, now);
+      if (g !== last) { var h = document.createElement('div'); h.className = 'group'; h.textContent = g; el.appendChild(h); last = g; }
+      var r = document.createElement('div');
+      r.className = 'ev';
+      r.innerHTML = '<i></i><div><b></b><span></span></div>';
+      r.firstChild.style.background = e.color;
+      r.querySelector('b').textContent = e.title;
+      r.querySelector('span').textContent = e.allDay ? 'All day' : clock(e.start) + ' – ' + clock(e.end);
+      el.appendChild(r);
+    });
+  }
+
+  // ---- Screensaver content ----
+  // Example headlines only; on the TV these come from news feeds you choose.
+  var NEWS = [
+    { src: 'Tech', color: '#0A84FF', hl: 'Example headline: A new streaming stick promises faster menus and Wi-Fi 7' },
+    { src: 'AI', color: '#BF5AF2', hl: 'Example headline: New open model runs fully on a laptop' },
+    { src: 'Sci-fi shows', color: '#64D2FF', hl: 'Example headline: A space drama gets a second season and a new trailer' },
+    { src: 'Gaming', color: '#30D158', hl: 'Example headline: A surprise indie hit tops this week’s charts' },
+    { src: 'Steam', color: '#C7D5E0', hl: 'Example: A city-builder you wishlisted is 60% off until Thursday' },
+    { src: 'Chicago', color: '#FF453A', hl: 'Example headline: Lakefront Trail reopens after weekend repairs' }
+  ];
+  var newsAt = 0;
+  function renderNews() {
+    var list = NEWS.filter(function (n) { return !prefs || prefs.news[n.src] !== false; });
+    if (!list.length) { $('newsSrc').textContent = 'Headlines'; $('newsHl').textContent = 'All topics are off. Turn some on in Settings → News.'; $('newsMore').textContent = ''; return; }
+    var n = list[newsAt % list.length];
+    $('newsSrc').textContent = n.src;
+    document.querySelector('.sv-news .src i').style.background = n.color;
+    $('newsHl').textContent = n.hl;
+    $('newsMore').textContent = 'Headlines · ' + (newsAt % list.length + 1) + ' of ' + list.length;
+  }
+  setInterval(function () {
+    var h = $('newsHl');
+    h.style.opacity = 0;
+    setTimeout(function () { newsAt++; renderNews(); h.style.opacity = 1; }, 500);
+  }, 8000);
+  function renderSaver() {
+    var now = simNow();
+    $('svDate').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    drawTime(timeText(now).replace(/\s?[AP]M$/i, ''));
+    var d = WX.days;
+    $('svWx').innerHTML = '<div class="city">CHICAGO</div><div class="now">' + WX.temp + '°</div><div class="cond">Partly Cloudy</div><div class="hl">H:58° L:44°</div>' +
+      '<div class="days"><span><b>' + d[0].dow + '</b>61° · Rain</span><span><b>' + d[1].dow + '</b>55° · Cloudy</span><span><b>' + d[2].dow + '</b>49° · Clear</span></div>';
+    renderCal(now, $('svCal'));
+    renderNews();
+  }
+  setInterval(function () { if (!stage.classList.contains('awake')) renderSaver(); }, 15000);
+
+  window.drawTimeAgain = function () { if (shownTime) drawTime(shownTime, true); };
+  // Clock as glass: render the time into canvas masks (fill + rim) in the headline font.
+  var shownTime = '', shownFont = '';
+  function drawTime(text, force) {
+    var el = $('svTime'), cs = getComputedStyle(el), size = 230;
+    var spec = cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+    if (!force && text === shownTime && spec === shownFont) return;
+    shownTime = text; shownFont = spec;
+    var ls = parseFloat(cs.letterSpacing) || 0;
+    function paint() {
+      if (shownTime !== text) return;
+      function mask(stroke) {
+        var c = document.createElement('canvas'), x = c.getContext('2d');
+        x.font = spec; try { x.letterSpacing = ls + 'px'; } catch (e) {}
+        var w = Math.ceil(x.measureText(text).width) + 40, h = Math.ceil(size * 1.16);
+        c.width = w; c.height = h;
+        x.font = spec; try { x.letterSpacing = ls + 'px'; } catch (e) {}
+        x.textBaseline = 'alphabetic';
+        if (stroke) {
+          // Top-edge highlight: the glyphs minus themselves shifted down a touch (no outline, so no seams).
+          x.fillStyle = '#fff'; x.fillText(text, 20, size * .94);
+          x.globalCompositeOperation = 'destination-out'; x.fillText(text, 21, size * .94 + 3);
+        }
+        else { x.fillStyle = '#fff'; x.fillText(text, 20, size * .94); }
+        return { url: 'url(' + c.toDataURL() + ')', w: w, h: h };
+      }
+      var fill = mask(false), rim = mask(true);
+      if ((prefs && prefs.clockStyle === 'Solid') || !window.CSS || !(CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)'))) {
+        el.innerHTML = '<div class="plain"></div>'; el.firstChild.textContent = text; return;
+      }
+      el.innerHTML = '<div class="layer shadow"></div><div class="layer frost"></div><div class="layer rim"></div>';
+      [['shadow', fill], ['frost', fill], ['rim', rim]].forEach(function (p) {
+        var d = el.querySelector('.' + p[0]);
+        d.style.width = p[1].w + 'px'; d.style.height = p[1].h + 'px';
+        d.style.webkitMaskImage = p[1].url; d.style.maskImage = p[1].url;
+      });
+      el.setAttribute('aria-label', text);
+    }
+    if (document.fonts && document.fonts.load) document.fonts.load(spec, text).then(paint, paint); else paint();
+  }
+
+  // ---- Greeting: two lines. A hello, then something true about right now. ----
+  // Weather here is the mockup's sample; on the TV it's the live Chicago forecast.
+  var WX = { temp: 54, text: 'partly cloudy', sunset: [17, 52], days: [{ dow: 'Tue', text: 'light rain' }, { dow: 'Wed', text: 'overcast' }, { dow: 'Thu', text: 'clear' }] };
+  var DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  function hellos(now) {
+    var hr = now.getHours(), dow = now.getDay(), day = DAYS[dow], mon = now.getMonth();
+    var part = hr < 5 ? 'night' : hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : hr < 22 ? 'evening' : 'night';
+    var list = {
+      morning: ['Good morning, Griffin', 'Morning, Griffin', 'Rise and shine, Griffin', 'Coffee and a show, Griffin?', 'Easy start today, Griffin?', 'Slow morning, Griffin?', 'Early start, Griffin?', 'Morning light, Griffin'],
+      afternoon: ['Good afternoon, Griffin', 'Afternoon, Griffin', 'Back at it, Griffin', 'Taking a break, Griffin?', 'Midday reset, Griffin?', 'How’s the day going, Griffin?', 'Afternoon off, Griffin?', 'Long day, Griffin?'],
+      evening: ['Good evening, Griffin', 'Evening, Griffin', 'What are we watching, Griffin?', 'How was your day, Griffin?', 'Time to unwind, Griffin', 'Settle in, Griffin', 'Lights down, Griffin', 'Dinner and a show, Griffin?', 'Movie night, Griffin?', 'Feet up, Griffin'],
+      night: ['Up late, Griffin?', 'Hey there, night owl', 'One more episode, Griffin?', 'Can’t sleep, Griffin?', 'Burning the midnight oil, Griffin?', 'Late show, Griffin?', 'Still up, Griffin?', 'Quiet hours, Griffin', 'Midnight movie, Griffin?']
+    }[part].concat(['Welcome back, Griffin', 'Hey, Griffin', 'Good to see you, Griffin', 'Griffin returns', 'Happy ' + day + ', Griffin',
+      'Make yourself at home, Griffin', 'Pick something good, Griffin', 'There you are, Griffin', 'All yours, Griffin', 'What’s it going to be, Griffin?']);
+    if (dow === 1) list.push('Monday again, Griffin', 'New week, Griffin');
+    if (dow === 5) list.push('Made it to Friday, Griffin', hr >= 17 ? 'Friday night, Griffin' : 'Almost the weekend, Griffin');
+    if (dow === 6 || dow === 0) list.push('Weekend mode, Griffin', 'Lazy ' + day + ', Griffin?', 'No alarms today, Griffin?');
+    if (dow === 0) list.push('Sunday reset, Griffin');
+    if (mon === 9) list.push('Spooky season, Griffin');
+    if (mon === 11) list.push('Cozy season, Griffin');
+    if (/rain|drizzle|showers|thunder/.test(WX.text)) list.push('Rainy one, Griffin');
+    if (/snow/.test(WX.text)) list.push('Snow day, Griffin?');
+    if (WX.temp < 32) list.push('Stay warm, Griffin');
+    return list;
+  }
+
+  function holiday(now) {
+    var y = now.getFullYear(), list = [['Halloween', 9, 31], ['Christmas', 11, 25], ['New Year’s Eve', 11, 31], ['Valentine’s Day', 1, 14], ['the Fourth of July', 6, 4]];
+    var nov1 = new Date(y, 10, 1).getDay();
+    list.push(['Thanksgiving', 10, 1 + ((4 - nov1 + 7) % 7) + 21]);
+    var today = new Date(y, now.getMonth(), now.getDate());
+    for (var i = 0; i < list.length; i++) {
+      var d = Math.round((new Date(y, list[i][1], list[i][2]) - today) / 864e5);
+      if (d === 0) return 'Happy ' + list[i][0].replace(/^the /, '') + '!';
+      if (d === 1) return list[i][0].charAt(0).toUpperCase() + list[i][0].slice(1) + ' is tomorrow';
+      if (d > 1 && d <= 21) return list[i][0].charAt(0).toUpperCase() + list[i][0].slice(1) + ' in ' + d + ' days';
+    }
+  }
+
+  function subs(now) {
+    var hr = now.getHours(), min = now.getMinutes(), dow = now.getDay(), mon = now.getMonth();
+    var time = timeText(now);
+    var set = WX.sunset, setText = (set[0] % 12 || 12) + ':' + (set[1] < 10 ? '0' : '') + set[1];
+    var afterSunset = hr * 60 + min >= set[0] * 60 + set[1];
+    var out = [WX.temp + '° and ' + WX.text + ' in Chicago'];
+    var tmr = WX.days[0].text;
+    if (/rain|snow|drizzle|showers|thunder/.test(tmr)) out.push(tmr.charAt(0).toUpperCase() + tmr.slice(1) + ' tomorrow. Good couch weather.');
+    if (WX.temp < 40) out.push('Bundle up out there');
+    if (hr >= 5 && hr < 12) out.push('Coffee first, then shows', 'Sunrise was a while ago. No rush.');
+    if (hr >= 12 && hr < 17) out.push('Perfect time for a matinee', afterSunset ? '' : 'Sunset at ' + setText + ' tonight');
+    if (hr >= 17 && hr < 22) out.push(afterSunset ? 'Dark since ' + setText + '. Prime time.' : 'Sunset at ' + setText + '. Golden hour.', 'Prime time');
+    if (hr >= 22 || hr < 5) out.push('It’s ' + time + '. One more, then bed?', 'The whole city’s asleep');
+    if (dow >= 1 && dow <= 4) out.push((5 - dow) + (5 - dow === 1 ? ' day' : ' days') + ' to the weekend');
+    if (dow === 5) out.push(hr >= 17 ? 'Friday night. Nowhere to be tomorrow.' : 'The weekend’s almost here');
+    if (dow === 6) out.push('Nothing on the calendar but this');
+    if (dow === 0) out.push('One more episode before Monday');
+    if (mon === 9) out.push('Scary movie season');
+    if (mon === 11) out.push('Peak holiday movie season');
+    if (mon >= 5 && mon <= 7) out.push('Summer nights in Chicago');
+    // Calendar: the next event, if it's soon.
+    var next = events(now).filter(function (e) { return !e.allDay; })[0];
+    if (next && (!prefs || prefs.greetCal)) {
+      var mins = Math.round((next.start - now) / 6e4), lbl = dayLabel(next.start, now);
+      if (mins > 0 && mins <= 60) out.push(next.title + ' in ' + mins + ' minutes', next.title + ' in ' + mins + ' minutes');
+      else if (mins > 60 && lbl === 'Today' && mins <= 360) out.push(next.title + ' at ' + clock(next.start), next.title + ' at ' + clock(next.start));
+      else if (lbl === 'Tomorrow' && next.start.getHours() < 12 && (hr >= 21 || hr < 5)) out.push(next.title + ' at ' + clock(next.start) + ' tomorrow. Maybe just one episode.');
+    }
+    var h = (!prefs || prefs.greetCountdown) ? holiday(now) : null;
+    if (h) out.push(h, h);   // counted twice: a countdown is the most fun thing to see
+    return out.filter(Boolean);
+  }
+
+  var sim = 'now';
+  function simNow() {
+    var d = new Date();
+    function at(dow, h, m) { var x = new Date(d); x.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7)); x.setHours(h, m, 0, 0); return x; }
+    switch (sim) {
+      case 'morning': d.setHours(8, 40, 0, 0); return d;
+      case 'afternoon': d.setHours(14, 15, 0, 0); return d;
+      case 'evening': d.setHours(18, 50, 0, 0); return d;
+      case 'late': d.setHours(23, 50, 0, 0); return d;
+      case 'friday': return at(5, 20, 10);
+      case 'saturday': return at(6, 11, 5);
+      default: return d;
+    }
+  }
+  function pick(list, cur) {
+    var next = cur;
+    for (var i = 0; i < 12 && next === cur; i++) next = list[Math.floor(Math.random() * list.length)];
+    return next;
+  }
+  function shuffle() {
+    var now = simNow();
+    renderCal(now);
+    renderSaver();
+    $('greet').textContent = pick(hellos(now), $('greet').textContent);
+    $('greetSub').textContent = pick(subs(now), $('greetSub').textContent);
+  }
+  $('shuffle').addEventListener('click', shuffle);
+  document.querySelectorAll('[data-w]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      sim = b.dataset.w;
+      document.querySelectorAll('[data-w]').forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      shuffle();
+    });
+  });
+  document.querySelector('[data-w="now"]').setAttribute('aria-pressed', 'true');
+
+  // Wi-Fi level 0-3. On the TV it comes from Android's signal strength; here a click cycles it to preview.
+  var WIFI = ['Wi-Fi: not connected', 'Wi-Fi: weak signal', 'Wi-Fi: good signal', 'Wi-Fi: strong signal'], wifiLevel = 3;
+  function setWifi(l) { wifiLevel = l; $('wifi').dataset.level = l; $('wifi').setAttribute('aria-label', WIFI[l]); }
+  $('wifi').addEventListener('click', function (e) { e.stopPropagation(); setWifi((wifiLevel + 3) % 4); });
+  setWifi(3);
+
+  function tick() {
+    var now = new Date();
+    $('time').textContent = timeText(now);
+    $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  tick(); setInterval(tick, 15000);
+
+  setGlass(load('glass', 35));
+  // ---- Type ----
+  var FONTS = [
+    { name: 'Host Grotesk', ui: 'Host Grotesk', dw: 600, dls: '-.025em', note: 'Closest to Apple’s system feel: neutral, rounded, very readable from the couch.' },
+    { name: 'Schibsted Grotesk', ui: 'Schibsted Grotesk', dw: 700, dls: '-.03em', note: 'Sturdier and a little editorial. Bold headlines with some character.' },
+    { name: 'Hanken Grotesk', ui: 'Hanken Grotesk', dw: 600, dls: '-.02em', note: 'Light and geometric. Calm, airy, a bit Scandinavian.' },
+    { name: 'Funnel', display: 'Funnel Display', ui: 'Funnel Sans', dw: 600, dls: '-.02em', note: 'Distinctive cuts in the display weight, plain text for everything else.' },
+    { name: 'Red Hat', display: 'Red Hat Display', ui: 'Red Hat Text', dw: 700, dls: '-.02em', note: 'Friendly and wide. Very legible at TV distance.' },
+    { name: 'SF Pro', stack: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', sans-serif", dw: 600, dls: '-.02em', note: 'Apple’s system font, shown from your Apple device. Elsewhere you’ll see a stand-in. Apple’s license only covers Apple platforms, so it can’t ship on the Fire TV.' },
+    { name: 'Montserrat', dw: 700, dls: '-.01em', note: 'Wide, round and cinematic. Big impact for headlines; too wide for long text.' },
+    { name: 'DIN-style (Barlow Condensed)', stack: "'Barlow Condensed', sans-serif", dw: 600, dls: '0', note: 'Free stand-in for DIN (DIN Pro is a paid license): narrow, structured, broadcast feel.' },
+    { name: 'Instrument (current)', display: 'Instrument Serif', ui: 'Instrument Sans', dw: 400, dls: '0', note: 'What Griffin Home uses today, for comparison.' }
+  ];
+  function setFont(i) {
+    var f = FONTS[i];
+    root.style.setProperty('--display', f.stack || ("'" + (f.display || f.name) + "', system-ui, sans-serif"));
+    root.style.setProperty('--dw', f.dw);
+    root.style.setProperty('--dls', f.dls);
+    $('fontNote').textContent = f.note;
+    if (window.drawTimeAgain) window.drawTimeAgain();
+    document.querySelectorAll('#fonts button').forEach(function (b, j) { b.setAttribute('aria-pressed', String(j === i)); });
+    save('font2', i);
+  }
+  FONTS.forEach(function (f, i) {
+    var b = document.createElement('button');
+    b.textContent = f.name;
+    b.style.fontFamily = f.stack || ("'" + (f.display || f.name) + "', system-ui, sans-serif");
+    b.addEventListener('click', function () { setFont(i); });
+    $('fonts').appendChild(b);
+  });
+  var MONTSERRAT = FONTS.map(function (f) { return f.name; }).indexOf('Montserrat');
+  setFont(Math.min(load('font2', MONTSERRAT), FONTS.length - 1));
+
+  // Everyday text: menus, labels, tab bar, settings, subtitles.
+  var UI = [
+    { name: 'Roboto', stack: "'Roboto', sans-serif", note: 'Android’s own font and the Android TV guideline default. Free to ship.' },
+    { name: 'Inter', stack: "'Inter', sans-serif", note: 'Drawn for screens: tall lowercase, very clear at small sizes. Free to ship.' },
+    { name: 'Helvetica Neue', stack: "'Helvetica Neue', Helvetica, Arial, sans-serif", note: 'Shown from your device’s own copy (Macs and iPhones have it). It’s a paid license, so it can’t ship on the TV without buying one.' },
+    { name: 'Open Sans', stack: "'Open Sans', sans-serif", note: 'Open and friendly, a classic for long reading. Free to ship.' },
+    { name: 'SF Pro', stack: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', sans-serif", note: 'Shown from your Apple device; a stand-in elsewhere. Can’t ship on the Fire TV (Apple-only license).' },
+    { name: 'Fira Sans', stack: "'Fira Sans', sans-serif", note: 'Humanist with wide, open letter shapes that stay distinct on older 1080p TVs. Free to ship.' },
+    { name: 'DIN-style (Barlow)', stack: "'Barlow', sans-serif", note: 'Free DIN look-alike: structured and slightly narrow, good for clocks, weather and dense info. Free to ship.' },
+    { name: 'Verdana', stack: "Verdana, Geneva, sans-serif", note: 'Wide and roomy, made for low-resolution screens. Shown from your device’s copy; Microsoft’s license doesn’t allow bundling it in an app.' }
+  ];
+  function setUi(i) {
+    root.style.setProperty('--sans', UI[i].stack);
+    $('uiNote').textContent = UI[i].note;
+    document.querySelectorAll('#uiFonts button').forEach(function (b, j) { b.setAttribute('aria-pressed', String(j === i)); });
+    save('uiFont2', i);
+  }
+  UI.forEach(function (f, i) {
+    var b = document.createElement('button');
+    b.textContent = f.name;
+    b.style.fontFamily = f.stack;
+    b.addEventListener('click', function () { setUi(i); });
+    $('uiFonts').appendChild(b);
+  });
+  setUi(Math.min(load('uiFont2', 0), UI.length - 1));
+
+  // ---- Settings screen ----
+  var prefs = load('prefs1', null) || {
+    clock24: false, wifi: true, greetCal: true, greetCountdown: true, textSize: 'Default',
+    picSource: 'Your pictures', picEvery: '15 minutes', picShuffle: true,
+    saverAfter: '10 minutes', clockStyle: 'Glass', svWeather: true, svCal: true, svNews: true, gargantua: false,
+    news: { Tech: true, AI: true, 'Sci-fi shows': true, Gaming: true, Steam: true, Chicago: true }, newsEvery: '8 seconds',
+    calHome: true, cals: { personal: true, health: true, errands: true, sports: true, holidays: true },
+    units: '°F', homeGuard: true, anim: '0.5x'
+  };
+  function savePrefs() { save('prefs1', prefs); }
+  var GLASS = { 'Frosted': 0, 'Balanced': 35, 'Light': 70, 'Clear': 100 };
+  function glassName() { var v = +$('glass').value, best = 'Balanced', d = 999; for (var n in GLASS) if (Math.abs(GLASS[n] - v) < d) { d = Math.abs(GLASS[n] - v); best = n; } return best; }
+
+  // Row builders. Each row: {type, label, sub, get, set|run, values}
+  function tog(label, sub, get, set) { return { type: 'toggle', label: label, sub: sub, get: get, set: set }; }
+  function cho(label, sub, values, get, set) { return { type: 'choice', label: label, sub: sub, values: values, get: get, set: set }; }
+  function act(label, sub, value, run) { return { type: 'action', label: label, sub: sub, value: value, run: run }; }
+  function pref(k) { return function () { return prefs[k]; }; }
+  function setPref(k) { return function (v) { prefs[k] = v; savePrefs(); applyPrefs(); }; }
+  function sec(t) { return { type: 'section', label: t }; }
+  var CALNAMES = { personal: 'Personal', health: 'Health', errands: 'Errands', sports: 'Sports', holidays: 'Holidays' };
+
+  var CATS = [
+    { name: 'Home', color: '#0A84FF', lede: 'The home screen, greeting and apps.', tip: true, rows: function () { return [
+      tog('Wi-Fi indicator', 'Signal strength next to the clock', pref('wifi'), setPref('wifi')),
+      cho('Clock', null, ['12-hour', '24-hour'], function () { return prefs.clock24 ? '24-hour' : '12-hour'; }, function (v) { prefs.clock24 = v === '24-hour'; savePrefs(); applyPrefs(); }),
+      sec('Greeting'),
+      tog('Mention calendar events', '“Dinner with Sam in 40 minutes”', pref('greetCal'), setPref('greetCal')),
+      tog('Holiday countdowns', '“Halloween in 4 days”', pref('greetCountdown'), setPref('greetCountdown')),
+      sec('Apps'),
+      act('Hidden apps', 'Bring hidden apps back to All apps', 'None', function () { toastSet('No hidden apps right now'); }),
+      act('Reset Favorites', 'Back to the original order', '', function () { favs = APPS.map(function (a) { return a.name; }); build(); toastSet('Favorites reset'); })
+    ]; } },
+    { name: 'Appearance', color: '#BF5AF2', lede: 'Glass, blur and type. Changes show right away.', rows: function () { return [
+      cho('Glass', 'Frosted is easiest to read; Clear shows the most picture', ['Frosted', 'Balanced', 'Light', 'Clear'], glassName, function (v) { setGlass(GLASS[v]); }),
+      cho('Home blur', 'How much the picture blurs behind Home', ['Light', 'Medium', 'Heavy'], function () { var b = +$('homeBlur').value; return b < 18 ? 'Light' : b < 34 ? 'Medium' : 'Heavy'; },
+        function (v) { var b = { Light: 12, Medium: 28, Heavy: 44 }[v]; $('homeBlur').value = b; $('homeBlur').dispatchEvent(new Event('input')); }),
+      cho('Headline font', 'Greeting, app names, clock', FONTS.map(function (f) { return f.name; }), function () { return FONTS[curFont].name; }, function (v) { setFont(FONTS.map(function (f) { return f.name; }).indexOf(v)); }),
+      cho('Text font', 'Menus, widgets, everything else', UI.map(function (f) { return f.name; }), function () { return UI[curUi].name; }, function (v) { setUi(UI.map(function (f) { return f.name; }).indexOf(v)); }),
+      cho('Text size', null, ['Default', 'Large'], pref('textSize'), setPref('textSize'))
+    ]; } },
+    { name: 'Pictures', color: '#FF9F0A', lede: 'What fills the screensaver and Home. Your background redo lands here.', rows: function () { return [
+      cho('Show', null, ['Your pictures', 'Film stills', 'Apple aerials', 'All of them'], pref('picSource'), setPref('picSource')),
+      cho('Change picture', null, ['Every 5 minutes', '15 minutes', 'Every hour', 'Once a day'], pref('picEvery'), setPref('picEvery')),
+      tog('Shuffle', 'Random order instead of in sequence', pref('picShuffle'), setPref('picShuffle')),
+      act('Add pictures', 'From your Mac with scripts/stills.sh', 'Mac', function () { toastSet('Add pictures from your Mac: ./scripts/stills.sh'); })
+    ]; } },
+    { name: 'Screensaver', color: '#64D2FF', lede: 'Clock, weather, calendar and headlines over your picture.', rows: function () { return [
+      act('Start now', null, '▶', function () { closeSet(); sleep(); }),
+      cho('Start after', 'Idle time before it comes on', ['5 minutes', '10 minutes', '15 minutes', '30 minutes', 'Never'], pref('saverAfter'), setPref('saverAfter')),
+      cho('Clock style', null, ['Glass', 'Solid'], pref('clockStyle'), setPref('clockStyle')),
+      sec('Show'),
+      tog('Weather', null, pref('svWeather'), setPref('svWeather')),
+      tog('Calendar', null, pref('svCal'), setPref('svCal')),
+      tog('Headlines', 'Topics are in News', pref('svNews'), setPref('svNews')),
+      tog('Gargantua', 'Add the black hole as a scene', pref('gargantua'), setPref('gargantua'))
+    ]; } },
+    { name: 'News', color: '#FF453A', lede: 'Headlines on the screensaver. One at a time, from free feeds.', rows: function () {
+      var rows = NEWS.map(function (n) { return tog(n.src, { Tech: 'The Verge, Ars Technica', AI: 'The Verge AI, MIT Technology Review', 'Sci-fi shows': 'Gizmodo, Den of Geek', Gaming: 'Polygon, IGN', Steam: 'Wishlist sales, top sellers', Chicago: 'Block Club, Sun-Times, WBEZ' }[n.src],
+        function () { return prefs.news[n.src] !== false; }, function (v) { prefs.news[n.src] = v; savePrefs(); applyPrefs(); }); });
+      rows[0].dot = NEWS[0].color;
+      NEWS.forEach(function (n, i) { rows[i].dot = n.color; });
+      return rows.concat([cho('Change headline', null, ['8 seconds', '15 seconds', '30 seconds'], pref('newsEvery'), setPref('newsEvery'))]);
+    } },
+    { name: 'Calendar', color: '#FF375F', lede: 'From Google Calendar. Read-only: add events on your phone.', rows: function () {
+      var rows = [act('Google Calendar', 'Example account · signs in with a code on your phone', 'Connected', function () { toastSet('In the real build: a code to enter at google.com/device'); }),
+        tog('Show on Home', null, pref('calHome'), setPref('calHome')), sec('Calendars')];
+      Object.keys(CALNAMES).forEach(function (k) {
+        var r = tog(CALNAMES[k], null, function () { return prefs.cals[k] !== false; }, function (v) { prefs.cals[k] = v; savePrefs(); applyPrefs(); });
+        r.dot = CALS[k]; rows.push(r);
+      });
+      return rows;
+    } },
+    { name: 'Weather', color: '#5AC8FA', lede: 'From Open-Meteo. No account needed.', rows: function () { return [
+      act('Location', null, 'Chicago, IL', function () { toastSet('Location is set from the Mac for now'); }),
+      cho('Units', null, ['°F', '°C'], pref('units'), setPref('units'))
+    ]; } },
+    { name: 'Network', color: '#30D158', lede: 'Your connection.', rows: function () { return [
+      act('Wi-Fi', 'Example network name', 'Home-5G', function () {}),
+      act('Signal', null, ['Not connected', 'Weak', 'Good', 'Strong'][wifiLevel], function () {}),
+      act('Network settings', 'Opens Fire OS network settings', '›', function () { toastSet('Opens Fire OS network settings'); })
+    ]; } },
+    { name: 'TV & system', color: '#8E8E93', lede: 'Fire OS, the home guard and cleanup. Everything here is reversible.', rows: function () { return [
+      tog('Home guard', 'The Home button comes here instead of Amazon’s home', pref('homeGuard'), setPref('homeGuard')),
+      cho('Animation speed', null, ['0.5x', '1.0x', 'Off'], pref('anim'), setPref('anim')),
+      act('Ads & tracking', '17 Amazon apps disabled · 3 protected by Fire OS', 'Cleaned', function () { toastSet('Managed from the Mac: scripts/debloat.sh'); }),
+      act('TV settings', 'Display, inputs, sound', '›', function () { toastSet('Opens Fire OS settings'); }),
+      act('Amazon home', 'For 10 minutes: inputs, app library', '›', function () { toastSet('Opens Amazon’s home for 10 minutes'); }),
+      act('Restore everything', 'Re-enable apps, stock animations, Amazon home', 'Mac', function () { toastSet('Run ./scripts/restore.sh on your Mac'); })
+    ]; } },
+    { name: 'About', color: '#C7C7CC', lede: 'Griffin Home on your TCL 55S450F.', rows: function () { return [
+      act('Griffin Home', null, 'Mockup', function () {}),
+      act('Fire OS', null, '7.7.1.7', function () {}),
+      act('TV', null, 'TCL 55S450F', function () {})
+    ]; } }
+  ];
+
+  var SET = { cat: 0, row: 0, pane: 'cats', rows: [] };
+  var curFont = 0, curUi = 0;
+  var _setFont = setFont, _setUi = setUi;
+  setFont = function (i) { curFont = i; _setFont(i); };
+  setUi = function (i) { curUi = i; _setUi(i); };
+  curFont = Math.min(load('font2', MONTSERRAT), FONTS.length - 1); curUi = Math.min(load('uiFont2', 0), UI.length - 1);
+
+  var scr = document.createElement('div');
+  scr.className = 'setscreen';
+  scr.innerHTML = '<div class="set-title">Settings</div><div class="set-cats glass" id="setCats"></div>' +
+    '<div class="set-detail glass"><h3 id="setH"></h3><div class="lede" id="setLede"></div><div class="set-view"><div class="set-rows" id="setRows"></div></div><div class="set-toast" id="setToast"></div></div>';
+  stage.appendChild(scr);
+
+  function openSet() { SET.cat = 0; SET.row = 0; SET.pane = 'cats'; stage.classList.add('insettings'); renderSet(); }
+  function closeSet() { stage.classList.remove('insettings'); render(); }
+  var setToastT;
+  function toastSet(m) { var t = $('setToast'); t.textContent = m; t.classList.add('on'); clearTimeout(setToastT); setToastT = setTimeout(function () { t.classList.remove('on'); }, 2600); }
+
+  function renderSet() {
+    var cats = $('setCats');
+    cats.innerHTML = '';
+    CATS.forEach(function (c, i) {
+      var d = document.createElement('div');
+      d.className = 'set-cat' + (i === SET.cat ? (SET.pane === 'cats' ? ' focus' : ' sel') : '');
+      d.innerHTML = '<i></i><span></span>';
+      d.firstChild.style.background = c.color;
+      d.lastChild.textContent = c.name;
+      d.addEventListener('click', function () { SET.cat = i; SET.pane = 'cats'; SET.row = 0; renderSet(); });
+      cats.appendChild(d);
+    });
+    var cat = CATS[SET.cat];
+    $('setH').textContent = cat.name;
+    $('setLede').textContent = cat.lede;
+    var all = cat.rows(), box = $('setRows');
+    SET.rows = all.filter(function (r) { return r.type !== 'section'; });
+    SET.row = Math.min(SET.row, SET.rows.length - 1);
+    box.innerHTML = '';
+    if (cat.tip) {
+      var tip = document.createElement('div');
+      tip.className = 'set-tip';
+      tip.innerHTML = '<b>Tip</b>Hold OK on any app for options: open, move, remove from Favorites, or hide it.';
+      box.appendChild(tip);
+    }
+    var focusEl = null, n = 0;
+    all.forEach(function (r) {
+      if (r.type === 'section') { var h = document.createElement('div'); h.className = 'set-sec'; h.textContent = r.label; box.appendChild(h); return; }
+      var i = n++, d = document.createElement('div');
+      d.className = 'srow2' + (SET.pane === 'rows' && i === SET.row ? ' focus' : '');
+      d.innerHTML = '<div><div class="l"></div><div class="s"></div></div><div class="v"></div>';
+      var l = d.querySelector('.l');
+      if (r.dot) { var dot = document.createElement('i'); dot.style.background = r.dot; l.appendChild(dot); }
+      l.appendChild(document.createTextNode(r.label));
+      if (r.sub) d.querySelector('.s').textContent = r.sub; else d.querySelector('.s').remove();
+      var v = d.querySelector('.v');
+      if (r.type === 'toggle') v.innerHTML = '<span class="switch' + (r.get() ? ' on' : '') + '"></span>';
+      else if (r.type === 'choice') v.innerHTML = '<span class="chev">‹</span><span></span><span class="chev">›</span>', v.children[1].textContent = r.get();
+      else v.textContent = r.value || '';
+      d.addEventListener('click', function () { SET.pane = 'rows'; SET.row = i; activate(1); });
+      box.appendChild(d);
+      if (SET.pane === 'rows' && i === SET.row) focusEl = d;
+    });
+    // Keep the focused row in view.
+    var y = 0, viewH = box.parentNode.clientHeight;
+    if (focusEl && focusEl.offsetTop + focusEl.offsetHeight > viewH) y = focusEl.offsetTop + focusEl.offsetHeight - viewH + 8;
+    box.style.transform = 'translateY(' + (-y) + 'px)';
+  }
+
+  function activate(dir) {
+    var r = SET.rows[SET.row];
+    if (!r) return;
+    if (r.type === 'toggle') r.set(!r.get());
+    else if (r.type === 'choice') { var i = r.values.indexOf(r.get()); r.set(r.values[(i + dir + r.values.length) % r.values.length]); }
+    else if (r.run) r.run();
+    if (stage.classList.contains('insettings')) renderSet();
+  }
+
+  function setKey(k) {
+    if (SET.pane === 'cats') {
+      if (k === 'up') SET.cat = Math.max(0, SET.cat - 1), SET.row = 0;
+      else if (k === 'down') SET.cat = Math.min(CATS.length - 1, SET.cat + 1), SET.row = 0;
+      else if (k === 'right' || k === 'ok') SET.pane = 'rows', SET.row = 0;
+      else if (k === 'back') return closeSet();
+    } else {
+      var r = SET.rows[SET.row];
+      if (k === 'up') SET.row = Math.max(0, SET.row - 1);
+      else if (k === 'down') SET.row = Math.min(SET.rows.length - 1, SET.row + 1);
+      else if (k === 'ok') return activate(1);
+      else if ((k === 'left' || k === 'right') && r && r.type === 'choice') return activate(k === 'right' ? 1 : -1);
+      else if (k === 'left' || k === 'back') SET.pane = 'cats';
+    }
+    renderSet();
+  }
+
+  function applyPrefs() {
+    $('wifi').hidden = !prefs.wifi;
+    $('cal').style.display = prefs.calHome ? '' : 'none';
+    $('svWx').style.display = prefs.svWeather ? '' : 'none';
+    $('svCal').style.display = prefs.svCal ? '' : 'none';
+    $('svNews').style.display = prefs.svNews ? '' : 'none';
+    stage.style.fontSize = '';
+    stage.classList.toggle('bigtext', prefs.textSize === 'Large');
+    tick();
+    var now = simNow();
+    renderCal(now);
+    if (window.drawTimeAgain) window.drawTimeAgain();
+    renderSaver();
+  }
+  applyPrefs();
+
+  build();
+  render();
+  shuffle();
+})();
+</script>
+
+</html>

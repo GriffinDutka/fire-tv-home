@@ -4,315 +4,640 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Griffin Home</title>
+<link rel="stylesheet" href="ui.css">
 <style>
-@font-face { font-family: 'Instrument Sans'; src: url(fonts/InstrumentSans.woff2) format('woff2'); font-weight: 400 700; }
-@font-face { font-family: 'Instrument Serif'; src: url(fonts/InstrumentSerif.woff2) format('woff2'); }
+/* Home: the picture blurred behind a greeting, widgets and rows of apps (docs/redesign/SPEC.md §5, §7–10). */
+html, body { background: #000; }
+.wall { transition: transform 900ms cubic-bezier(.2,.8,.2,1); }
+/* Lock screen → home: the same picture, sharp on the screensaver, blurred and dimmed behind Home.
+   The blurred copy is drawn once per picture into a small canvas (drawBlur) and faded in over the sharp one:
+   animating a CSS blur on the TV ran the blur-in at ~9fps. */
+#stage.awake .wall { transform: scale(1.08); }
+.blurred { position: absolute; left: -6%; top: -6%; width: 112%; height: 112%; opacity: 0; transition: opacity 900ms cubic-bezier(.2,.8,.2,1); }
+#stage.awake .blurred { opacity: 1; }
+/* Settings dims the picture a little further (brightness .72 → .58). */
+.dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 320ms ease; }
+#stage.awake.insettings .dim { opacity: .2; }
+.shade { position: absolute; inset: 0; transition: background 400ms ease, opacity 400ms ease;
+  background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 55%), linear-gradient(to right, rgba(0,0,0,.35), rgba(0,0,0,0) 50%); }
+#stage.down .shade { background: rgba(0,0,0,.45); }
+#stage:not(.awake) .shade { opacity: 0; }
+.homeui { position: absolute; inset: 0; transition: opacity 450ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
+#stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); }
+#stage.insettings .homeui { opacity: 0; transition: none; }
+#stage.instant .wall, #stage.instant .blurred, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
 
-:root {
-  --ground: #0B0B0C;
-  --tile: #18181B;
-  --row: #141416;
-  --ink: #F2F0EA;
-  --ink-2: #D6D4CE;
-  --muted: #A6A49E;
-  --faint: #8C8A85;
-  --accent: #F2F0EA;
-  --serif: 'Instrument Serif', Georgia, serif;
-  --mono: ui-monospace, 'Droid Sans Mono', monospace;
-}
-html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; }
-body { font-family: 'Instrument Sans', system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+/* ---- Top bar ---- */
+.top { position: absolute; left: 72px; right: 72px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; }
+.greetBox { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.greet { font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 38px; line-height: 1.12; text-wrap: balance; }
+.greetSub { font-size: 21px; line-height: 1.3; color: rgba(255,255,255,.82); }
+.bigtext .greetSub { font-size: 24px; }
+.tabs { flex: none; display: flex; gap: 4px; padding: 6px; border-radius: 999px; white-space: nowrap; }
+.tabs span { padding: 12px 26px; border-radius: 999px; font-size: 19px; font-weight: 500; color: rgba(255,255,255,.85); transition: background 150ms, color 150ms, transform 200ms; }
+.tabs span.on { background: var(--focus); color: var(--focus-ink); }
+/* With the tab pill focused, the focused tab takes the fill and the current one stays lit. */
+.tabs.active span.on { background: rgba(255,255,255,.18); color: #fff; }
+.tabs.active span.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.04); }
+.clock { flex: none; display: flex; align-items: center; gap: 18px; padding: 14px 24px; border-radius: 999px; font-size: 19px; color: rgba(255,255,255,.9); white-space: nowrap; }
+.bigtext .clock { font-size: 22px; }
+.clock b { font-weight: 600; font-size: 22px; color: #fff; font-variant-numeric: tabular-nums; }
+.clock i { font-style: normal; color: rgba(255,255,255,.7); }
+.clock i:empty { display: none; }
+/* Wi-Fi: arcs light up with signal strength; dimmed arcs with a slash when offline; a cable on Ethernet. */
+.wifi { display: inline-flex; margin-left: -4px; }
+.wifi svg { width: 26px; height: 26px; overflow: visible; }
+.wifi path, .wifi rect { fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: opacity 200ms; }
+.wifi circle { fill: #fff; transition: opacity 200ms; }
+.wifi .slash { opacity: 0; stroke-width: 2.2; }
+.wifi .eth { display: none; }
+.wifi[data-level="4"] .air { display: none; }
+.wifi[data-level="4"] .eth { display: inline; }
+.wifi[data-level="2"] .a3, .wifi[data-level="1"] .a3, .wifi[data-level="1"] .a2 { opacity: .28; }
+.wifi[data-level="0"] .a3, .wifi[data-level="0"] .a2, .wifi[data-level="0"] .a1, .wifi[data-level="0"] .a0 { opacity: .28; }
+.wifi[data-level="0"] .slash { opacity: 1; }
 
-/* Designed at 1600x900, scaled to whatever the TV reports. */
-#stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; }
-.screen { position: absolute; inset: 0; display: none; }
-.screen.on { display: flex; }
+/* ---- Hero and widgets, anchored to the bottom so taller widgets never reach the rows ---- */
+.hero { position: absolute; left: 72px; right: 72px; bottom: 412px; display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; transition: opacity 300ms ease; }
+#stage.down .hero { opacity: 0; }
+.heroText { flex: 1; min-width: 0; }
+.kicker { font-size: 16px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.78); margin-bottom: 12px; display: flex; align-items: center; gap: 12px; }
+.kicker .dot { width: 11px; height: 11px; border-radius: 50%; }
+.hero h2 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 120px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-bottom: .08em; margin-bottom: -.08em; }
+.caption { margin-top: 16px; font-size: 18px; color: rgba(255,255,255,.8); }
+.caption:empty { display: none; }
+.widgets { flex: none; display: flex; align-items: stretch; gap: 16px; }
+.forecast { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.forecast:empty { display: none; }
 
-#home { flex-direction: column; padding: 56px 72px; box-sizing: border-box; }
-.top { display: flex; justify-content: space-between; align-items: center; }
-.greet { font-family: var(--serif); font-size: 40px; }
-.clock { display: flex; gap: 20px; align-items: center; font-size: 18px; color: var(--muted); }
-.clock b { color: var(--ink); font-size: 22px; font-weight: 500; }
-.wx { color: var(--ink-2); }
-.wx:empty { display: none; }
-.wx i { font-style: normal; color: var(--faint); margin-left: 8px; }
+/* ---- Rows ---- */
+.scroll { position: absolute; left: 0; right: 0; top: 520px; transition: transform 360ms cubic-bezier(.2,.8,.2,1); }
+.shelf { padding: 0 0 0 72px; height: 284px; transition: opacity 300ms ease; }
+.shelf .label { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 18px; }
+.row { display: flex; gap: 36px; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
+.tile { flex: none; position: relative; width: 288px; height: 164px; border-radius: 30px; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px 22px; box-sizing: border-box; color: #fff; font-size: 20px; font-weight: 500;
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease; }
+/* App tiles: the app's own art with the glass rim and sheen on top, no backdrop blur. */
+.tile.app { padding: 0; align-items: center; justify-content: center; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: rgba(255,255,255,calc(var(--rim) * .9)); background-position: center; background-size: cover; background-repeat: no-repeat; }
+.tile.app .logo { width: 116px; height: 116px; display: block; object-fit: contain; }
+.tile.app .word { font: 700 50px/1 var(--sans); letter-spacing: -.02em; white-space: nowrap; }
+.tile.app .word.long { font-size: 38px; }
+.tile.focus { transform: translateY(-8px) scale(1.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 28px 50px rgba(0,0,0,.45); border-color: rgba(255,255,255,.7); }
+/* One light sweep across a tile as it gains focus. */
+.tile.focus::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.28) 48%, rgba(255,255,255,0) 66%); animation: sheen 1.1s ease-out both; }
+@keyframes sheen { from { transform: translateX(-60%); opacity: 1; } to { transform: translateX(60%); opacity: 0; } }
+.tile.moving { animation: jiggle 240ms ease-in-out infinite alternate; }
+@keyframes jiggle { from { transform: translateY(-8px) scale(1.12) rotate(-1.5deg); } to { transform: translateY(-8px) scale(1.12) rotate(1.5deg); } }
+.tname { position: absolute; left: -40px; right: -40px; bottom: -44px; text-align: center; font-size: 18px; font-weight: 400; color: #fff; opacity: 0; transition: opacity 200ms; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile.app .tname { bottom: -46px; }
+.bigtext .tname { font-size: 21px; }
+.tile.focus .tname { opacity: 1; }
 
-.hero { flex-grow: 1; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 48px; }
-.kicker { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; font-size: 16px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
-.dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
-.hero h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 132px; line-height: 1; letter-spacing: -.01em; }
-.caption { margin-top: 18px; font-size: 18px; color: var(--faint); font-family: var(--mono); }
+/* ---- Options panel ---- */
+.sheet { position: absolute; inset: 0; display: flex; justify-content: flex-end; background: rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+.sheet.on { opacity: 1; pointer-events: auto; }
+.panel { width: 540px; margin: 28px; border-radius: 40px; padding: 36px 44px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+  transform: translateX(40px); transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
+.sheet.on .panel { transform: none; }
+.panel .eyebrow { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.panel h4 { margin: 0 0 12px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 64px; line-height: 1; overflow-wrap: anywhere; }
+.opts { display: flex; flex-direction: column; gap: 12px; }
+.opt { padding: 15px 24px; border-radius: 999px; font-size: 22px; font-weight: 500; background: rgba(255,255,255,.08); transition: background 150ms, color 150ms, transform 200ms; }
+.opt.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.03); }
+.panel .hint { margin-top: 14px; font-size: 16px; color: rgba(255,255,255,.65); }
 
-.label { font-size: 15px; color: var(--faint); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 16px; }
-.label.sys { margin-top: 36px; }
-.row { display: flex; gap: 14px; }
-.tile {
-  box-sizing: border-box; width: 150px; height: 104px; border-radius: 14px; padding: 18px 18px 16px;
-  display: flex; flex-direction: column; justify-content: space-between;
-  background: var(--tile); color: var(--ink-2); font-size: 19px; font-weight: 500;
-  transition: transform 110ms cubic-bezier(.2,.8,.2,1), background 110ms ease, color 110ms ease;
-}
-.tile .dot { width: 10px; height: 10px; }
-.tile.wide { width: 260px; justify-content: flex-end; }
-.tile.focus { background: var(--accent); color: var(--ground); transform: scale(1.08); }
-
-#settings { }
-.side { width: 560px; padding: 72px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; border-right: 1px solid #1E1E21; }
-.side .eyebrow { font-size: 16px; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 14px; }
-.side h2 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 104px; line-height: 1; }
-.side p { margin: 20px 0 0; font-size: 18px; color: var(--faint); line-height: 1.5; }
-.list { flex-grow: 1; padding: 72px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
-.srow {
-  display: flex; justify-content: space-between; align-items: center; padding: 22px 28px; border-radius: 14px;
-  background: var(--row); color: var(--ink-2); transition: background 110ms ease, color 110ms ease;
-}
-.srow .t { display: flex; flex-direction: column; gap: 6px; }
-.srow .l { font-size: 26px; font-weight: 500; }
-.srow .s { font-size: 16px; color: var(--faint); }
-.srow .v { font-size: 22px; font-weight: 500; }
-.srow.focus { background: var(--accent); color: var(--ground); }
-.srow.focus .s { color: #3A3936; }
-.toast { margin-top: 18px; font-size: 16px; color: #8C8A85; min-height: 22px; }
-
-#launching { flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: #050506; }
-#launching .dot { width: 16px; height: 16px; }
-#launching h1 { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 120px; line-height: 1; }
-#launching p { margin: 0; font-size: 18px; color: var(--faint); }
+/* ---- Settings screen (settings.js): categories left, rows right ---- */
+.setscreen { position: absolute; inset: 0; display: none; }
+#stage.awake.insettings .setscreen { display: block; animation: setIn 320ms cubic-bezier(.2,.8,.2,1); }
+@keyframes setIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.set-title { position: absolute; left: 72px; top: 54px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 60px; line-height: 1; }
+.set-cats { position: absolute; left: 72px; top: 150px; bottom: 56px; width: 392px; box-sizing: border-box; padding: 14px; border-radius: 36px; display: flex; flex-direction: column; gap: 4px; }
+.set-cat { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 999px; font: 500 21px var(--sans); transition: background 150ms, color 150ms; }
+.set-cat i { width: 30px; height: 30px; border-radius: 9px; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.set-cat.sel { background: rgba(255,255,255,.14); }
+.set-cat.focus { background: var(--focus); color: var(--focus-ink); }
+.set-detail { position: absolute; left: 492px; right: 72px; top: 54px; bottom: 56px; box-sizing: border-box; padding: 34px 40px; border-radius: 40px; overflow: hidden; }
+.set-detail h3 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 42px; line-height: 1.1; }
+.set-detail .lede { margin: 6px 0 18px; font: 17px/1.4 var(--sans); color: rgba(255,255,255,.7); }
+.set-view { position: absolute; left: 40px; right: 40px; top: 128px; bottom: 30px; overflow: hidden; }
+.set-rows { display: flex; flex-direction: column; gap: 8px; transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+.set-tip { padding: 14px 20px; border-radius: 20px; background: rgba(255,255,255,.1); font: 18px/1.4 var(--sans); color: rgba(255,255,255,.88); margin-bottom: 4px; }
+.set-tip b { display: block; font-size: 13px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 3px; }
+.set-sec { font: 700 13px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); margin: 10px 0 0 6px; }
+.srow2 { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 62px; box-sizing: border-box; padding: 10px 22px; border-radius: 22px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.srow2 .l { font: 500 21px var(--sans); display: flex; align-items: center; gap: 10px; }
+.srow2 .l i { width: 12px; height: 12px; border-radius: 50%; }
+.srow2 .s { font: 15px var(--sans); color: rgba(255,255,255,.62); margin-top: 3px; }
+.srow2 .v { font: 500 19px var(--sans); color: rgba(255,255,255,.85); white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+.srow2 .chev { opacity: 0; font-size: 16px; }
+.srow2.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.01); }
+.srow2.focus .s { color: rgba(0,0,0,.55); }
+.srow2.focus .v { color: var(--focus-ink); }
+.srow2.focus .chev { opacity: .55; }
+.srow2.focus .switch:not(.on) { background: rgba(0,0,0,.2); }
+.bigtext .srow2 .l { font-size: 24px; }
+.bigtext .srow2 .s { font-size: 17px; }
+.set-toast { position: absolute; left: 40px; right: 40px; bottom: 26px; padding: 14px 20px; border-radius: 18px; background: rgba(0,0,0,.45); font: 17px var(--sans); opacity: 0; transform: translateY(8px); transition: opacity 250ms, transform 250ms; pointer-events: none; }
+.set-toast.on { opacity: 1; transform: none; }
 </style>
 </head>
 <body>
 <div id="stage">
-  <section id="home" class="screen on">
+  <div class="wall" id="wall"><!-- No drift behind Home: a moving picture re-blurs it and every glass panel each frame (25fps on the TV vs 37 still). --><div class="scene" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div><div class="pic"></div><div class="pic"></div></div><canvas class="blurred" id="blurred"></canvas><div class="dim"></div></div>
+  <div class="shade"></div>
+
+  <div class="homeui">
     <div class="top">
-      <span class="greet" id="greet"></span>
-      <span class="clock"><span class="wx" id="wx"></span><span id="date"></span><b id="time"></b></span>
+      <div class="greetBox txt"><span class="greet" id="greet">Welcome back, Griffin</span><span class="greetSub" id="greetSub"></span></div>
+      <div class="tabs glass" id="tabs"><span class="on">Home</span><span>Apps</span><span>Claude</span><span>Settings</span></div>
+      <div class="clock glass txt"><i id="wx"></i><span id="date"></span><b id="time"></b><span class="wifi" id="wifi" role="img" aria-label="Wi-Fi: strong signal"><svg viewBox="0 0 24 24" aria-hidden="true"><g class="air"><path class="a3" d="M2.6 9.2a13.4 13.4 0 0 1 18.8 0"/><path class="a2" d="M5.7 12.4a9 9 0 0 1 12.6 0"/><path class="a1" d="M8.8 15.6a4.6 4.6 0 0 1 6.4 0"/><circle class="a0" cx="12" cy="19" r="1.7"/><path class="slash" d="M4 4l16 16"/></g><g class="eth"><rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 17v3h8v-3M8.5 9v2.5M11.2 9v2.5M12.8 9v2.5M15.5 9v2.5"/></g></svg></span></div>
     </div>
+
     <div class="hero">
-      <div class="kicker"><span class="dot" id="heroDot"></span><span id="heroKicker"></span></div>
-      <h1 id="heroTitle"></h1>
-      <div class="caption" id="heroCaption"></div>
+      <div class="heroText txt">
+        <div class="kicker" id="kicker"><span class="dot" id="heroDot"></span><span id="heroKicker"></span></div>
+        <h2 id="heroTitle"></h2>
+        <div class="caption" id="heroCaption"></div>
+      </div>
+      <div class="widgets">
+        <div class="forecast" id="forecast"></div>
+        <div class="cal glass dark txt" id="cal" aria-label="Calendar"></div>
+      </div>
     </div>
-    <div class="label">Apps</div>
-    <div class="row" id="appsRow"></div>
-    <div class="label sys">System</div>
-    <div class="row" id="sysRow"></div>
-  </section>
 
-  <section id="settings" class="screen">
-    <div class="side">
-      <div class="eyebrow">Your TV</div>
-      <h2>Settings</h2>
-      <p>Fire OS 7.7.1.7 · TCL 55S450F<br>Everything here is reversible.</p>
-    </div>
-    <div class="list">
-      <div id="settingsList"></div>
-      <div class="toast" id="toast"></div>
-    </div>
-  </section>
+    <div class="scroll" id="scroll"></div>
 
-  <section id="launching" class="screen">
-    <span class="dot" id="launchDot"></span>
-    <h1 id="launchName"></h1>
-    <p>Back returns home</p>
-  </section>
+    <div class="sheet" id="sheet">
+      <div class="panel glass">
+        <div class="eyebrow" id="sheetKicker"></div>
+        <h4 id="sheetTitle"></h4>
+        <div class="opts" id="sheetList"></div>
+        <div class="hint">Back to close</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="weather.js"></script>
+<script src="glass.js"></script>
+<script src="prefs.js"></script>
+<script src="calendar.js"></script>
+<script src="greeting.js"></script>
+<script src="pictures.js"></script>
+<script src="news.js"></script>
 <script>
 (function () {
   var A = window.Android || null;
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage');
 
-  var APPS = [
-    { name: 'Netflix', pkg: 'com.netflix.ninja', color: '#E50914' },
-    { name: 'YouTube', pkg: 'com.amazon.firetv.youtube', color: '#FF3B30' },
-    { name: 'Apple TV', pkg: 'com.apple.atve.amazon.appletv', color: '#C7C7CC' },
-    { name: 'Peacock', pkg: 'com.peacock.peacockfiretv', color: '#F5B700' },
-    { name: 'Max', pkg: 'com.hbo.hbonow', color: '#3D5AFE' },
-    { name: 'Tubi', pkg: 'com.tubitv.ott', color: '#FF6A1A' },
-    { name: 'Pluto TV', pkg: 'tv.pluto.android', color: '#FFE14D' },
-    { name: 'Fawesome', pkg: 'com.future.moviesByFawesomeAndroidTV', color: '#2EC4B6' },
-    { name: 'Crossy Road', pkg: 'com.hipsterwhale.crossy', color: '#7BD389' }
-  ].filter(function (a) { return !A || A.installed(a.pkg); });
+  // Each app's colors, from SPEC §2 (tile background, accent dot, and the mark/wordmark when an app
+  // has no TV banner). Names here win over long store labels ("Peacock TV" → "Peacock").
+  var BRAND = {
+    'com.netflix.ninja': { name: 'Netflix', color: '#E50914', bg: '#000000', fg: '#E50914' },
+    'com.amazon.firetv.youtube': { name: 'YouTube', color: '#FF0000', bg: '#FFFFFF', fg: '#FF0000' },
+    'com.apple.atve.amazon.appletv': { name: 'Apple TV', color: '#C7C7CC', bg: '#000000', fg: '#FFFFFF' },
+    'com.peacock.peacockfiretv': { name: 'Peacock', color: '#F5B700', bg: '#000000', fg: '#FFFFFF', word: 'peacock' },
+    'com.hbo.hbonow': { name: 'HBO Max', color: '#3D5AFE', bg: 'linear-gradient(140deg, #0A1A6B, #000000 70%)', fg: '#FFFFFF' },
+    'com.tubitv.ott': { name: 'Tubi', color: '#7408FF', bg: '#7408FF', fg: '#FFFFFF' },
+    'com.anthropic.claude': { name: 'Claude', color: '#D97757', bg: '#D97757', fg: '#FFFFFF' },
+    'tv.pluto.android': { name: 'Pluto TV', color: '#FFF200', bg: '#000000', fg: '#FFF200', word: 'pluto tv' },
+    'com.amazon.firebat': { name: 'Prime Video', color: '#00A8E1', bg: '#00A8E1', fg: '#FFFFFF', word: 'prime video' },
+    'com.plexapp.android': { name: 'Plex', color: '#EBAF00', bg: '#1F1F1F', fg: '#EBAF00' },
+    'com.spotify.tv.android': { name: 'Spotify', color: '#1ED760', bg: '#000000', fg: '#1ED760' },
+    'com.hipsterwhale.crossy': { name: 'Crossy Road', color: '#7BD389', bg: '#5CC46E', fg: '#FFFFFF', word: 'Crossy Road' },
+    'com.future.moviesByFawesomeAndroidTV': { name: 'Fawesome', color: '#2EC4B6', bg: '#16233A', fg: '#2EC4B6', word: 'fawesome' }
+  };
+  var DEFAULT_FAVS = ['com.netflix.ninja', 'com.amazon.firetv.youtube', 'com.apple.atve.amazon.appletv', 'com.peacock.peacockfiretv', 'com.hbo.hbonow', 'com.tubitv.ott', 'com.anthropic.claude'];
+  var CLAUDE_PKG = 'com.anthropic.claude', CLAUDE_URL = 'https://claude.ai/code';
 
   var SYS = [
-    { name: 'Settings', caption: 'Animation speed, cleanup status, home guard', run: function () { show('settings'); } },
+    { name: 'Screensaver', caption: 'Clock, weather, calendar and headlines, right now', run: function () { sleep(); } },
+    { name: 'Settings', caption: 'Glass, pictures, screensaver, news, calendar', run: function () { openSettings(); } },
     { name: 'TV settings', caption: 'Fire OS settings: network, display, inputs', run: function () { A && A.tvSettings(); } },
     { name: 'Amazon home', caption: 'Amazon’s home for 10 minutes: inputs, app library', run: function () { A && A.amazonHome(); } }
   ];
 
-  var st = { screen: 'home', row: 0, col: 0, srow: 0, seed: Math.random() };
+  // Tab pill: Up from Favorites focuses it.
+  var TABS = [
+    { name: 'Home', caption: 'Back to the top', run: function () { st.r = 0; st.col[0] = 0; render(); } },
+    { name: 'Apps', caption: 'Every app on the TV', run: function () { st.r = 1; render(); } },
+    { name: 'Claude', caption: '', run: function () { openClaude(); } },
+    { name: 'Settings', caption: 'Glass, pictures, screensaver, news, calendar', run: function () { openSettings(); } }
+  ];
 
-  function $(id) { return document.getElementById(id); }
+  var prefs = settings.load();
 
   // clientWidth, not innerWidth: the WebView widens innerWidth to fit the unscaled 1600px stage.
   function fit() {
     var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
     var s = Math.min(w / 1600, h / 900);
-    var stage = $('stage');
     stage.style.transform = 'scale(' + s + ')';
     stage.style.left = ((w - 1600 * s) / 2) + 'px';
     stage.style.top = ((h - 900 * s) / 2) + 'px';
   }
 
-  function greeting(now) {
-    var hr = now.getHours();
-    var part = hr < 5 ? 'night' : hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : hr < 22 ? 'evening' : 'night';
-    var day = now.toLocaleDateString([], { weekday: 'long' });
-    var any = ['Welcome back, Griffin', 'Hey, Griffin', 'Good to see you, Griffin', 'Griffin returns',
-      'Happy ' + day + ', Griffin', 'Make yourself at home, Griffin', 'Pick something good, Griffin'];
-    var byPart = {
-      morning: ['Good morning, Griffin', 'Morning, Griffin', 'Rise and shine, Griffin', 'Coffee and a show, Griffin?', 'Easy start today, Griffin?', 'Slow morning, Griffin?'],
-      afternoon: ['Good afternoon, Griffin', 'Afternoon, Griffin', 'Back at it, Griffin', 'Taking a break, Griffin?', 'Midday reset, Griffin?', 'How’s the day going, Griffin?'],
-      evening: ['Good evening, Griffin', 'Evening, Griffin', 'What are we watching, Griffin?', 'How was your day, Griffin?', 'Time to unwind, Griffin', 'Settle in, Griffin', 'Lights down, Griffin'],
-      night: ['Up late, Griffin?', 'Hey there, night owl', 'One more episode, Griffin?', 'Can’t sleep, Griffin?', 'Burning the midnight oil, Griffin?', 'Late show, Griffin?']
-    }[part];
-    var weekend = (day === 'Saturday' || day === 'Sunday') ? ['Weekend mode, Griffin', 'Lazy ' + day + ', Griffin?'] : [];
-    var all = byPart.concat(any, weekend);
-    return all[Math.floor(st.seed * all.length)];
+  // ---- Apps ----
+  function installedApps(raw) {
+    try { return JSON.parse(raw); } catch (e) { return []; }
+  }
+  function app(a) {
+    var b = BRAND[a.pkg] || {};
+    return { pkg: a.pkg, name: b.name || a.name, color: b.color || '#8C8A85', bg: b.bg || '#1F1F24', fg: b.fg || '#FFFFFF', word: b.word || b.name || a.name };
+  }
+
+  var shelves = [], st = { r: 0, col: [0, 0, 0], tab: 0, moving: false, sheet: null, opt: 0 };
+
+  // Rebuilds the rows, unless nothing changed since last time (resume runs this on every return).
+  var builtFrom = '';
+  function build() {
+    var raw = A ? A.apps() : '[]', favs0 = store.get('favorites', null), hidden = store.get('hidden', []) || [];
+    var sig = raw + JSON.stringify(favs0) + JSON.stringify(hidden);
+    if (sig === builtFrom && shelves.length) return;
+    builtFrom = sig;
+    var apps = installedApps(raw).map(app), byPkg = {};
+    apps.forEach(function (a) { byPkg[a.pkg] = a; });
+    var favs = (favs0 || DEFAULT_FAVS).filter(function (p) { return byPkg[p]; });
+    shelves = [
+      { label: 'Favorites', kind: 'Favorite', items: favs.map(function (p) { return byPkg[p]; }) },
+      { label: 'All apps', kind: 'App', items: apps.filter(function (a) { return favs.indexOf(a.pkg) < 0 && hidden.indexOf(a.pkg) < 0; }) },
+      { label: 'System', kind: 'System', items: SYS, sys: true }
+    ];
+    var root = $('scroll');
+    root.innerHTML = '';
+    shelves.forEach(function (sh, r) {
+      var el = document.createElement('div');
+      el.className = 'shelf';
+      el.innerHTML = '<div class="label txt"></div><div class="row"></div>';
+      el.firstChild.textContent = sh.label;
+      sh.el = el; sh.row = el.lastChild; sh.off = 0;
+      sh.tiles = sh.items.map(function (a) {
+        var t = document.createElement('div');
+        t.className = 'tile glass' + (sh.sys ? ' sys' : ' app');
+        if (sh.sys) {
+          t.innerHTML = '<span class="txt"></span><span class="tname txt"></span>';
+          t.firstChild.textContent = a.name;
+        } else {
+          art(t, a);
+          t.insertAdjacentHTML('beforeend', '<span class="tname txt"></span>');
+          t.querySelector('.tname').textContent = a.name;
+        }
+        sh.row.appendChild(t);
+        return t;
+      });
+      st.col[r] = Math.max(0, Math.min(st.col[r], sh.items.length - 1));
+      root.appendChild(el);
+    });
+    if (!shelves[st.r].items.length) st.r = 2;
+  }
+
+  // Tile art: the app's TV banner fills the tile; otherwise its icon at 116px on the app's color,
+  // or its name as a wordmark if Android has no icon for it.
+  var icons = {};
+  function art(t, a) {
+    var ic = icons[a.pkg];
+    if (ic === undefined) {
+      try { ic = A ? JSON.parse(A.icon(a.pkg)) : null; } catch (e) { ic = null; }
+      icons[a.pkg] = ic;
+    }
+    if (ic && ic.banner) { t.classList.add('banner'); t.style.backgroundImage = 'url("' + ic.src + '")'; t.style.backgroundColor = '#000'; return; }
+    t.style.background = a.bg;
+    if (ic && ic.src) {
+      var img = document.createElement('img');
+      img.className = 'logo'; img.src = ic.src; img.alt = '';
+      t.appendChild(img);
+    } else {
+      var w = document.createElement('span');
+      w.className = 'word' + (a.word.length > 8 ? ' long' : '');
+      w.style.color = a.fg;
+      w.textContent = a.word;
+      t.appendChild(w);
+    }
+  }
+
+  function current() { return st.r < 0 ? TABS[st.tab] : shelves[st.r].items[st.col[st.r]]; }
+
+  function render() {
+    shelves.forEach(function (s, r) {
+      s.el.style.opacity = r < st.r - 1 ? 0 : 1;   // rows that scroll up under the greeting fade out
+      s.tiles.forEach(function (t, j) {
+        var on = r === st.r && j === st.col[r];
+        t.classList.toggle('focus', on);
+        t.classList.toggle('moving', on && st.moving);
+      });
+    });
+    var tabs = $('tabs').children;
+    $('tabs').classList.toggle('active', st.r < 0);
+    for (var i = 0; i < tabs.length; i++) {
+      tabs[i].classList.toggle('on', i === (st.r === 1 ? 1 : 0));
+      tabs[i].classList.toggle('focus', st.r < 0 && i === st.tab);
+    }
+    var it = current();
+    if (st.r >= 0 && it) {
+      // Slide the row to keep focus in the safe area, and the page to keep the row on screen.
+      // x is the tile's left edge inside the row (tiles are 288 wide with 36 between).
+      var sh = shelves[st.r], W = 1600 - 72 * 2, x = st.col[st.r] * (288 + 36);
+      if (x - sh.off < 0) sh.off = x;
+      if (x + 288 - sh.off > W) sh.off = x + 288 - W;
+      sh.row.style.transform = 'translateX(' + (-sh.off) + 'px)';
+    }
+    var y = st.r <= 0 ? 0 : st.r * 284 - 150;
+    $('scroll').style.transform = 'translateY(' + (-y) + 'px)';
+    stage.classList.toggle('down', st.r > 0);
+
+    var sys = st.r === 2, tab = st.r < 0;
+    fitTitle(it ? it.name : '');
+    $('heroKicker').textContent = st.moving ? 'Moving' : sys ? 'System' : 'App';
+    $('kicker').hidden = tab || (st.r === 0 && !st.moving);   // the Favorites row needs no label
+    $('heroDot').style.background = sys ? '#8C8A85' : it ? it.color : '';
+    $('heroCaption').textContent = st.moving ? '◀ ▶ to move · OK when it’s in place' : (sys || tab) && it ? it.caption : '';
+  }
+
+  // The name is 120px; names too long for the space beside the widgets step down (to 72px at most).
+  function fitTitle(name) {
+    var h = $('heroTitle'), fit = name + '|' + getComputedStyle(h).fontFamily + '|' + (document.fonts ? document.fonts.status : '');
+    if (h.dataset.fit === fit) return;
+    h.textContent = name;
+    h.style.fontSize = '';
+    h.dataset.fit = fit;
+    if (h.scrollWidth > h.clientWidth) h.style.fontSize = Math.max(72, Math.floor(120 * h.clientWidth / h.scrollWidth)) + 'px';
+  }
+
+  function launch(a) { if (A) A.launch(a.pkg); }
+
+  // Claude: the app if it's installed, otherwise claude.ai/code in Silk.
+  function openClaude() {
+    if (A && A.installed(CLAUDE_PKG)) A.launch(CLAUDE_PKG);
+    else if (A && A.openUrl) A.openUrl(CLAUDE_URL);
+  }
+  function claudeCaption() { return A && A.installed(CLAUDE_PKG) ? 'Open the Claude app' : 'claude.ai/code in Silk'; }
+
+  // ---- Favorites and hidden apps ----
+  function favPkgs() { return shelves[0].items.map(function (a) { return a.pkg; }); }
+  function saveFavs(list) { store.set('favorites', list); }
+
+  function openSheet() {
+    var sh = shelves[st.r], it = current();
+    if (st.r < 0 || sh.sys || !it) return;
+    var fav = st.r === 0;
+    st.sheet = [{ label: 'Open', run: function () { closeSheet(); launch(it); } }].concat(fav ? [
+      { label: 'Move', run: function () { closeSheet(); st.moving = true; render(); } },
+      { label: 'Remove from Favorites', run: function () {
+        saveFavs(favPkgs().filter(function (p) { return p !== it.pkg; }));
+        closeSheet(); build(); render();
+      } }
+    ] : [
+      { label: 'Add to Favorites', run: function () {
+        var list = favPkgs(); list.push(it.pkg); saveFavs(list);
+        closeSheet(); build(); st.r = 0; st.col[0] = list.length - 1; render();
+      } },
+      { label: 'Hide', run: function () {
+        var h = store.get('hidden', []) || [];
+        if (h.indexOf(it.pkg) < 0) h.push(it.pkg);
+        store.set('hidden', h);
+        closeSheet(); build(); render();
+      } }
+    ]);
+    st.opt = 0;
+    $('sheetKicker').textContent = sh.kind;
+    $('sheetTitle').textContent = it.name;
+    $('sheet').classList.add('on');
+    renderSheet();
+  }
+  function renderSheet() {
+    var list = $('sheetList');
+    list.innerHTML = '';
+    st.sheet.forEach(function (o, i) {
+      var d = document.createElement('div');
+      d.className = 'opt' + (i === st.opt ? ' focus' : '');
+      d.textContent = o.label;
+      list.appendChild(d);
+    });
+  }
+  function closeSheet() { st.sheet = null; $('sheet').classList.remove('on'); }
+
+  // Move mode: ◀ ▶ swaps with the neighbor; nothing happens at either end.
+  function move(d) {
+    var list = favPkgs(), i = st.col[0], j = i + d;
+    if (j < 0 || j >= list.length) return;
+    var t = list[i]; list[i] = list[j]; list[j] = t;
+    saveFavs(list);
+    build(); st.col[0] = j;
+  }
+  function endMove() { if (st.moving) { st.moving = false; saveFavs(favPkgs()); } }
+
+  // ---- Screensaver and Settings ----
+  function sleep() { closeSheet(); endMove(); render(); if (A) A.startScreensaver(); }
+  function openSettings() { if (window.settingsScreen) settingsScreen.open(); }
+
+  // ---- Remote ----
+  function key(k) {
+    if (window.settingsScreen && settingsScreen.isOpen()) return settingsScreen.key(k);
+    if (st.sheet) {
+      if (k === 'up') st.opt = Math.max(0, st.opt - 1);
+      else if (k === 'down') st.opt = Math.min(st.sheet.length - 1, st.opt + 1);
+      else if (k === 'ok') return st.sheet[st.opt].run();
+      else if (k === 'back') return closeSheet();
+      return renderSheet();
+    }
+    if (st.moving) {
+      if (k === 'left' || k === 'right') move(k === 'right' ? 1 : -1);
+      else if (k === 'ok' || k === 'back' || k === 'hold' || k === 'menu') endMove();
+      return render();
+    }
+    if (st.r < 0) {
+      if (k === 'left') st.tab = Math.max(0, st.tab - 1);
+      else if (k === 'right') st.tab = Math.min(TABS.length - 1, st.tab + 1);
+      else if (k === 'down') st.r = firstRow();
+      else if (k === 'ok') return TABS[st.tab].run();
+      else if (k === 'back') { st.r = firstRow(); st.col[0] = 0; }
+      return render();
+    }
+    var sh = shelves[st.r];
+    if (k === 'up') {
+      var r = st.r - 1;
+      while (r >= 0 && !shelves[r].items.length) r--;
+      if (r < 0) { st.r = -1; st.tab = 0; } else st.r = r;
+    } else if (k === 'down') {
+      var d = st.r + 1;
+      while (d < shelves.length && !shelves[d].items.length) d++;
+      if (d < shelves.length) st.r = d;
+    }
+    else if (k === 'left') st.col[st.r] = Math.max(0, st.col[st.r] - 1);
+    else if (k === 'right') st.col[st.r] = Math.min(sh.items.length - 1, st.col[st.r] + 1);
+    else if (k === 'hold' || k === 'menu') return openSheet();
+    else if (k === 'ok') return sh.sys ? current().run() : launch(current());
+    else if (k === 'back') { st.r = firstRow(); st.col[st.r] = 0; }
+    render();
+  }
+  function firstRow() { for (var r = 0; r < shelves.length; r++) if (shelves[r].items.length) return r; return 2; }
+
+  // ---- Clock pill, widgets, greeting ----
+  var wx = null;
+  // LIVE DATA SEAM (phase 7): window.liveData.wifi = 0 offline, 1–3 Wi-Fi strength, 4 Ethernet
+  // (the sample shows a strong signal). Fire the 'livedata' event on document to redraw.
+  function wifiLevel() { var L = window.liveData; return L && L.wifi != null ? L.wifi : 3; }
+  var WIFI = ['Wi-Fi: not connected', 'Wi-Fi: weak signal', 'Wi-Fi: good signal', 'Wi-Fi: strong signal', 'Ethernet'];
+  function renderWifi() {
+    var l = Math.max(0, Math.min(4, wifiLevel()));
+    $('wifi').dataset.level = l;
+    $('wifi').setAttribute('aria-label', WIFI[l]);
+    $('wifi').hidden = !prefs.wifi;
   }
 
   function tick() {
     var now = new Date();
-    $('time').textContent = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('time').textContent = fmt.time(now, prefs.clock24);
     $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
-    $('greet').textContent = greeting(now);
   }
 
-  function showWeather() {
-    weather.get(function (w) { $('wx').innerHTML = w.temp + '° ' + w.text + '<i>Chicago</i>'; });
-  }
-
-  function rowLen(r) { return r === 0 ? APPS.length : SYS.length; }
-
-  function tile(name, color, wide, focused) {
-    var d = document.createElement('div');
-    d.className = 'tile' + (wide ? ' wide' : '') + (focused ? ' focus' : '');
-    if (color) {
-      var dot = document.createElement('span');
-      dot.className = 'dot';
-      dot.style.background = color;
-      d.appendChild(dot);
-    }
-    var t = document.createElement('span');
-    t.textContent = name;
-    d.appendChild(t);
-    return d;
-  }
-
-  function renderHome() {
-    var apps = $('appsRow'), sys = $('sysRow');
-    apps.innerHTML = ''; sys.innerHTML = '';
-    APPS.forEach(function (a, i) { apps.appendChild(tile(a.name, a.color, false, st.row === 0 && st.col === i)); });
-    SYS.forEach(function (x, i) { sys.appendChild(tile(x.name, null, true, st.row === 1 && st.col === i)); });
-
-    var it = st.row === 0 ? APPS[st.col] : SYS[st.col];
-    $('heroTitle').textContent = it ? it.name : '';
-    $('heroCaption').textContent = it ? (it.pkg || it.caption) : '';
-    $('heroKicker').textContent = st.row === 0 ? 'App' : 'System';
-    $('heroDot').style.background = st.row === 0 && it ? it.color : '#8C8A85';
-  }
-
-  function settingsRows() {
-    var anim = A ? A.getAnim() : 0.5;
-    var guard = A ? A.guardOn() : true;
-    return [
-      { label: 'Animation speed', sub: 'OK cycles 0.5x → 1.0x → Off', value: anim === 0 ? 'Off' : anim + 'x', run: function () {
-          var next = anim === 0.5 ? 1 : anim === 1 ? 0 : 0.5;
-          toast(A && A.setAnim(next) ? 'Animation speed set to ' + (next === 0 ? 'off' : next + 'x') : 'Not allowed — re-run install.sh');
-        } },
-      { label: 'Ads & tracking', sub: '17 Amazon apps disabled · 3 protected by Fire OS', value: 'Cleaned', run: function () { toast('Managed from the Mac: scripts/debloat.sh'); } },
-      { label: 'Home guard', sub: guard ? 'This screen replaces Amazon’s home' : 'Amazon’s home is back', value: guard ? 'On' : 'Off', run: function () {
-          var ok = A && A.setGuardOn(!guard);
-          toast(ok ? (guard ? 'Off — open Griffin Home from Your Apps to turn it back on' : 'On — Home button now comes here') : 'Not allowed — re-run install.sh');
-        } },
-      { label: 'Restore everything', sub: 'Re-enable apps, stock animations, Amazon home', value: 'Mac', run: function () { toast('Run ./scripts/restore.sh from the fire-tv repo'); } }
-    ];
-  }
-
-  var rows = [];
-  function renderSettings() {
-    rows = settingsRows();
-    var list = $('settingsList');
-    list.innerHTML = '';
-    list.style.display = 'flex'; list.style.flexDirection = 'column'; list.style.gap = '14px';
-    rows.forEach(function (r, i) {
-      var d = document.createElement('div');
-      d.className = 'srow' + (st.srow === i ? ' focus' : '');
-      d.innerHTML = '<div class="t"><span class="l"></span><span class="s"></span></div><span class="v"></span>';
-      d.querySelector('.l').textContent = r.label;
-      d.querySelector('.s').textContent = r.sub;
-      d.querySelector('.v').textContent = r.value;
-      list.appendChild(d);
+  function renderWeather() {
+    $('wx').textContent = wx ? wx.temp + '° ' + wx.text + ' · Chicago' : '';
+    var f = $('forecast');
+    f.innerHTML = '';
+    (wx && wx.days || []).slice(0, 3).forEach(function (d) {
+      var r = document.createElement('div');
+      r.className = 'fday glass txt';
+      r.innerHTML = '<small></small><b><i></i></b><span></span>';
+      r.querySelector('small').textContent = d.dow;
+      r.querySelector('b').insertBefore(document.createTextNode(d.hi + '°'), r.querySelector('i'));
+      r.querySelector('i').textContent = d.lo + '°';
+      r.querySelector('span').textContent = d.text;
+      f.appendChild(r);
     });
   }
 
-  var toastTimer;
-  function toast(msg) {
-    $('toast').textContent = msg;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { $('toast').textContent = ''; }, 4000);
-    renderSettings();
+  function renderCal() {
+    $('cal').hidden = !prefs.calHome;
+    calendar.render($('cal'), new Date(), prefs);
   }
 
-  function show(name) {
-    st.screen = name;
-    ['home', 'settings', 'launching'].forEach(function (s) { $(s).classList.toggle('on', s === name); });
-    if (name === 'home') renderHome();
-    if (name === 'settings') { st.srow = 0; $('toast').textContent = ''; renderSettings(); }
+  function greet() {
+    var now = new Date();
+    $('greet').textContent = greeting.pick(greeting.hellos(now, wx, prefs), $('greet').textContent);
+    $('greetSub').textContent = greeting.pick(greeting.subs(now, wx, prefs), $('greetSub').textContent);
   }
 
-  function launch(app) {
-    $('launchName').textContent = app.name;
-    $('launchDot').style.background = app.color;
-    show('launching');
-    setTimeout(function () {
-      if (!(A && A.launch(app.pkg))) show('home');
-    }, 150);
+  function refreshWeather() { weather.get(function (w) { var first = !wx; wx = w; renderWeather(); if (first) greet(); }, prefs.units); }
+
+  // ---- Picture ----
+  function showPicture(instant, then) {
+    pictures.show($('scene'), pictures.current(prefs), function (ok) {
+      // An aerial's still frame may still be in the works the first time; try again shortly.
+      clearTimeout(posterTimer);
+      if (!ok) posterTimer = setTimeout(showPicture, 4000);
+      drawBlur();
+      if (then) then();
+    }, instant === true);
+  }
+  var posterTimer;
+
+  // The blurred, dimmed picture behind Home: drawn once into a 640x360 canvas (a quarter-ish of the
+  // 1792x1008 picture box, so the Home blur scales down with it) and stretched over the sharp picture.
+  var BW = 640, BH = 360;
+  function drawBlur() {
+    var c = $('blurred'), x = c.getContext('2d'), scene = $('scene');
+    var front = scene.querySelectorAll('.pic')[scene._front || 0], url = front.classList.contains('on') && front.dataset.url;
+    var px = store.get('homeBlur', 28) * BW / 1792, m = Math.ceil(px * 2) + 1;   // overscan so the edges don't blur into black
+    function paint(img) {
+      c.width = BW; c.height = BH;
+      x.filter = 'blur(' + px.toFixed(2) + 'px) brightness(.72) saturate(1.25)';
+      var w = BW + 2 * m, h = BH + 2 * m;
+      if (img) {
+        var ia = img.naturalWidth / img.naturalHeight, ba = w / h, sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+        if (ia > ba) { sw = sh * ba; sx = (img.naturalWidth - sw) / 2; } else { sh = sw / ba; sy = (img.naturalHeight - sh) / 2; }
+        x.drawImage(img, sx, sy, sw, sh, -m, -m, w, h);
+      } else placeholder(x, -m, -m, w, h);
+    }
+    if (!url) return paint(null);
+    var img = new Image();
+    img.onload = function () { paint(img); };
+    img.onerror = function () { paint(null); };
+    img.src = url;
+  }
+  // The dusk placeholder scene (ui.css .scene .sky/.r1/.r2), for the canvas.
+  function placeholder(x, l, t, w, h) {
+    var g = x.createLinearGradient(0, t, 0, t + h);
+    [[0, '#0d1b33'], [.38, '#2b3d63'], [.66, '#c47a5a'], [.74, '#f0b27a'], [.75, '#2a2230']].forEach(function (s) { g.addColorStop(s[0], s[1]); });
+    x.fillStyle = g; x.fillRect(l, t, w, h);
+    function ridge(color, height, pts) {
+      var top = t + h * (1 - height), rh = h * height;
+      x.fillStyle = color; x.beginPath();
+      pts.forEach(function (p, i) { x[i ? 'lineTo' : 'moveTo'](l + w * p[0] / 100, top + rh * p[1] / 100); });
+      x.lineTo(l + w, t + h); x.lineTo(l, t + h); x.closePath(); x.fill();
+    }
+    ridge('#1d1a2a', .42, [[0, 40], [12, 22], [24, 38], [37, 12], [50, 34], [63, 18], [76, 36], [88, 20], [100, 32]]);
+    ridge('#0f0d17', .30, [[0, 30], [18, 52], [33, 26], [48, 50], [62, 30], [80, 56], [100, 34]]);
   }
 
-  function key(k) {
-    if (st.screen === 'home') {
-      if (k === 'up' || k === 'down') {
-        var r = Math.max(0, Math.min(1, st.row + (k === 'down' ? 1 : -1)));
-        if (r !== st.row) { st.row = r; st.col = Math.min(st.col, rowLen(r) - 1); }
-      } else if (k === 'left') st.col = Math.max(0, st.col - 1);
-      else if (k === 'right') st.col = Math.min(rowLen(st.row) - 1, st.col + 1);
-      else if (k === 'ok') return st.row === 0 ? launch(APPS[st.col]) : SYS[st.col].run();
-      else if (k === 'menu') return show('settings');
-      renderHome();
-    } else if (st.screen === 'settings') {
-      if (k === 'up') st.srow = Math.max(0, st.srow - 1);
-      else if (k === 'down') st.srow = Math.min(rows.length - 1, st.srow + 1);
-      else if (k === 'ok') return rows[st.srow].run();
-      else if (k === 'back' || k === 'menu') return show('home');
-      renderSettings();
-    } else if (k === 'back') show('home');
+  // Applies everything Settings controls; Settings calls this after each change.
+  function applyPrefs() {
+    prefs = settings.load();
+    look.apply();
+    stage.classList.toggle('bigtext', prefs.textSize === 'Large');
+    tick(); renderWifi(); renderCal();
+    var hb = store.get('homeBlur', 28);
+    if (hb !== shownBlur) { shownBlur = hb; drawBlur(); }
   }
+  var shownBlur = null;
 
-  // Called by MainActivity whenever the user comes back home.
+  // Called by MainActivity whenever Home comes back: from an app, the screensaver or the Home button.
   function resume() {
-    st.seed = Math.random();
-    tick();
-    showWeather();
-    show('home');
+    closeSheet(); endMove();
+    applyPrefs();
+    build(); render();
+    greet();
+    refreshWeather();
+    // Blur in: start sharp like the screensaver, then fade in the blurred copy once it's drawn.
+    // The screensaver may have moved on, so the picture switches without a crossfade.
+    pause();
+    var woke = false;
+    function wake() {
+      if (woke) return;
+      woke = true;
+      requestAnimationFrame(function () { requestAnimationFrame(function () { stage.classList.add('awake'); }); });
+    }
+    showPicture(true, wake);
+    setTimeout(wake, 600);
   }
 
-  window.tv = { key: key, resume: resume };
+  window.home = {
+    applyPrefs: applyPrefs, rebuild: function () { build(); render(); }, sleep: sleep, render: render,
+    resetFavorites: function () { store.set('favorites', DEFAULT_FAVS); build(); render(); },
+    defaultFavorites: DEFAULT_FAVS, wifiLevel: wifiLevel, refreshWeather: refreshWeather, showPicture: showPicture
+  };
+  // Called by MainActivity as Home goes out of sight: drop straight to the sharp picture (no
+  // transition) so the next resume starts there instead of flashing the old blurred frame.
+  function pause() {
+    closeSheet(); endMove();
+    stage.classList.add('instant');
+    stage.classList.remove('awake');
+    void stage.offsetWidth;
+    stage.classList.remove('instant');
+  }
+
+  window.tv = { key: key, resume: resume, pause: pause };
+  TABS[2].caption = claudeCaption();
+
+  document.addEventListener('livedata', function () { renderWifi(); renderCal(); });
 
   // Browser testing without the Android bridge.
   if (!A) {
-    var map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back', Backspace: 'back', m: 'menu' };
+    var map = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', Enter: 'ok', Escape: 'back', Backspace: 'back', h: 'hold', m: 'menu' };
     document.addEventListener('keydown', function (e) { if (map[e.key]) { e.preventDefault(); key(map[e.key]); } });
   }
 
-  window.addEventListener('resize', fit);
+  window.addEventListener('resize', function () { fit(); render(); });
   fit();
-  tick();
-  renderHome();
+  resume();
+  if (document.fonts) document.fonts.ready.then(render);
   setInterval(tick, 15000);
-  showWeather();
-  setInterval(showWeather, 10 * 60 * 1000);
+  setInterval(refreshWeather, 10 * 60 * 1000);
+  setInterval(showPicture, 60 * 1000);
+  setInterval(renderCal, 60 * 1000);
 })();
 </script>
+<script src="settings.js"></script>
 </body>
 </html>

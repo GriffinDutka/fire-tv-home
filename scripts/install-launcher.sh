@@ -12,6 +12,8 @@ adb_tv install -r "$ROOT/launcher/build/griffin-home.apk"
 
 # Lets the in-app Settings screen change animation speed and toggle the guard.
 adb_tv shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS
+# Lets Settings → Screensaver → Start after change the screen timeout.
+adb_tv shell appops set "$PKG" WRITE_SETTINGS allow
 
 current="$(adb_tv shell settings get secure enabled_accessibility_services | tr -d '\r')"
 if [[ "$current" == "null" || -z "$current" ]]; then

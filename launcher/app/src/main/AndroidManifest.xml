@@ -8,6 +8,8 @@
     <!-- Granted over ADB by install.sh; lets the Settings screen change animation speed
          and turn the home guard on/off. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Settings → Screensaver → Start after sets the screen timeout; granted with appops by install-launcher.sh. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Chicago weather (Open-Meteo) on the home screen and screensaver. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
@@ -35,6 +37,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <!-- The screensaver on demand (home screen → Screensaver). -->
+        <activity
+            android:name=".ScreensaverActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode" />
 
         <!-- Fire OS ignores third-party HOME apps, so this watches for Amazon's home
              screen and swaps in ours. Disable it to get Amazon's home back. -->

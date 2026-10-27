@@ -3,379 +3,257 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gargantua</title>
+<title>Griffin Home screensaver</title>
+<link rel="stylesheet" href="ui.css">
 <style>
-@font-face { font-family: 'JetBrains Mono'; src: url(fonts/JetBrainsMono.woff2) format('woff2'); }
-html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
-/* Page is transparent so the native aerial video behind it shows through. */
-#sky { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; transition: opacity 2.5s ease; }
-body.video #sky { opacity: 0; }
-.still { position: absolute; inset: 0; background: #000 center / cover no-repeat; opacity: 0; will-change: opacity, transform; }
-#grain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; opacity: 0; mix-blend-mode: overlay; transition: opacity 2.5s ease; }
-#leak { position: absolute; inset: -20%; z-index: 3; opacity: 0; mix-blend-mode: screen; transition: opacity 2.5s ease;
-  background: radial-gradient(40% 50% at 50% 50%, rgba(255,150,60,.22), rgba(255,90,40,.08) 45%, rgba(0,0,0,0) 70%);
-  animation: leak 26s ease-in-out infinite alternate; }
-@keyframes leak { from { transform: translate(-30%, 10%); } to { transform: translate(35%, -12%); } }
-body.stills #grain { opacity: .09; }
-body.stills #leak { opacity: 1; }
-body.stills #shade, body.video #shade { opacity: 1; }
-#shade { position: absolute; inset: 0; z-index: 4; opacity: 0; transition: opacity 2.5s ease;
-  background: linear-gradient(to top right, rgba(0,0,0,.78) 0%, rgba(0,0,0,.35) 32%, rgba(0,0,0,0) 55%); }
-#term {
-  position: absolute; left: 4.5vw; bottom: 6vh; max-width: 60vw; z-index: 5;
-  font: 1.45vw/1.55 'JetBrains Mono', ui-monospace, monospace; color: #C9C3B6;
-  text-shadow: 0 0 .5vw rgba(0,0,0,.9); white-space: pre; transition: transform 2s ease;
-}
-#term .p { color: #E8A44A; }
-#term .d { color: #7E796F; }
-#term .h { color: #F4EFE4; }
-.cur { display: inline-block; width: .6em; height: 1.1em; vertical-align: -.2em; background: #E8A44A; animation: blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
+/* Screensaver: the picture sharp, the date, a frosted-glass clock and three glass cards (docs/redesign/SPEC.md §6).
+   The page is transparent so an aerial playing in SaverView's VideoView underneath shows through. */
+html, body { background: transparent; }
+.wall { transition: opacity 2.5s ease; }
+body.video .wall { opacity: 0; }
+#garg { position: fixed; left: 0; top: 0; width: 100%; height: 100%; border: 0; opacity: 0; transition: opacity 2.5s ease; background: #000; }
+#garg.on { opacity: 1; }
+.saver { position: absolute; inset: 0; transition: opacity 2.5s ease; }
+body.garg .saver { opacity: 0; }
+.sv-date { position: absolute; top: 92px; left: 0; right: 0; text-align: center; font: 500 32px/1 var(--sans); text-shadow: 0 2px 18px rgba(0,0,0,.45); }
+.sv-time { position: absolute; top: 126px; left: 0; right: 0; height: 270px; font-family: var(--display); font-weight: 700; font-size: 230px; line-height: 1; letter-spacing: -.035em; }
+/* Frosted-glass digits: the picture blurred through the numbers, a soft shadow behind, a bright edge on top.
+   Each layer is masked to the clock's shape, drawn on a canvas so the glass follows the exact glyphs. */
+.sv-time .layer { position: absolute; left: 50%; top: 0; transform: translateX(-50%); -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+.sv-time .shadow { background: rgba(0,0,0,.16); filter: blur(22px); top: 6px; }
+.sv-time .frost { -webkit-backdrop-filter: blur(calc(var(--blur) * .8 + 6px)) saturate(1.8) brightness(1.18); backdrop-filter: blur(calc(var(--blur) * .8 + 6px)) saturate(1.8) brightness(1.18);
+  background: linear-gradient(175deg, rgba(255,255,255,calc(var(--tint) + .55)) 0%, rgba(255,255,255,calc(var(--tint) + .26)) 55%, rgba(255,255,255,calc(var(--tint) + .34)) 100%); }
+.sv-time .rim { background: rgba(255,255,255,.85); }
+.sv-time .plain { position: absolute; inset: 0; text-align: center; color: rgba(255,255,255,.9); }
+.sv-row { position: absolute; left: 72px; right: 72px; bottom: 60px; display: flex; align-items: stretch; gap: 18px; }
+.sv-wx { --extra: .3; width: 330px; flex: none; box-sizing: border-box; padding: 20px 24px; border-radius: 28px; display: flex; flex-direction: column; gap: 4px; }
+.sv-wx .city { font-size: 15px; font-weight: 700; letter-spacing: .04em; color: rgba(255,255,255,.75); }
+.sv-wx .now { font-size: 64px; font-weight: 400; line-height: 1; }
+.sv-wx .cond { font-size: 17px; }
+.sv-wx .hl { font-size: 15px; color: rgba(255,255,255,.7); }
+.sv-wx .days { display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.15); font-size: 15px; }
+.sv-wx .days span b { display: block; font-size: 13px; font-weight: 700; color: rgba(255,255,255,.65); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 2px; }
+.sv-row .cal { flex: none; }
+.sv-news { --extra: .3; flex: 1; min-width: 0; box-sizing: border-box; padding: 20px 26px; border-radius: 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.sv-news .src { font-size: 14px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.7); display: flex; gap: 10px; align-items: center; }
+.sv-news .src i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+.sv-news .hl { font-size: 26px; font-weight: 500; line-height: 1.3; transition: opacity 500ms ease; }
+.sv-news .more { font-size: 15px; color: rgba(255,255,255,.65); }
 </style>
 </head>
 <body>
-<canvas id="sky"></canvas>
-<div class="still" id="stillA"></div>
-<div class="still" id="stillB"></div>
-<canvas id="grain"></canvas>
-<div id="leak"></div>
-<div id="shade"></div>
-<div id="term"></div>
-
-<script id="frag" type="x-shader/x-fragment">
-precision highp float;
-uniform vec2 res;
-uniform float t;
-
-// Gargantua: Schwarzschild black hole (rs = 1) with a thin accretion disk.
-// Each pixel's light ray is bent with the photon-orbit trick a = -1.5 h^2 r / |r|^5,
-// so the far side of the disk wraps over and under the shadow like in the film.
-
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
-}
-
-vec3 stars(vec3 d) {
-  vec2 uv = vec2(atan(d.z, d.x), asin(clamp(d.y, -1.0, 1.0))) * 120.0;
-  vec2 cell = floor(uv);
-  float h = hash(cell);
-  vec2 off = vec2(hash(cell + 7.1), hash(cell + 3.3)) - 0.5;
-  float s = smoothstep(0.08, 0.0, length(fract(uv) - 0.5 - off * 0.6)) * step(0.965, h);
-  float tw = 0.6 + 0.4 * sin(t * 1.3 + h * 40.0);
-  return vec3(0.85, 0.9, 1.0) * s * tw * (h - 0.965) * 30.0;
-}
-
-vec4 disk(vec3 p) {
-  float r = length(p.xz);
-  if (r < 3.0 || r > 14.0) return vec4(0.0);
-  float a = atan(p.z, p.x);
-  float spin = t * 0.9 / pow(r, 1.5);           // Kepler: inner rings orbit faster
-  float bands = noise(vec2(r * 3.0, (a + spin * 6.0) * 1.5)) * 0.65
-              + noise(vec2(r * 8.0, (a + spin * 6.0) * 3.0)) * 0.35;
-  float inner = smoothstep(3.0, 3.6, r), outer = 1.0 - smoothstep(7.5, 14.0, r);
-  float heat = pow(1.0 - (r - 3.0) / 11.0, 1.4);
-  vec3 col = mix(vec3(0.95, 0.55, 0.22), vec3(1.0, 0.9, 0.74), heat);
-  col = mix(col, vec3(1.0, 0.98, 0.94), smoothstep(0.7, 1.0, heat));
-  float b = inner * outer * (0.35 + 0.9 * bands) * (0.4 + 2.2 * heat);
-  return vec4(col * b, clamp(inner * outer * (0.55 + 0.45 * bands), 0.0, 1.0));
-}
-
-void main() {
-  vec2 uv = (gl_FragCoord.xy - 0.5 * res) / res.y - vec2(0.22, -0.04);  // hole sits right of the terminal
-
-  // Camera slowly drifts around the hole, a few degrees above the disk.
-  float yaw = t * 0.012;
-  float pitch = 0.075 + 0.02 * sin(t * 0.03);
-  vec3 cam = 30.0 * vec3(cos(pitch) * sin(yaw), sin(pitch), -cos(pitch) * cos(yaw));
-  vec3 fw = normalize(-cam);
-  vec3 rt = normalize(cross(vec3(0.0, 1.0, 0.0), fw));
-  vec3 up = cross(fw, rt);
-  vec3 dir = normalize(fw * 1.55 + uv.x * rt + uv.y * up);
-
-  vec3 pos = cam;
-  vec3 col = vec3(0.0);
-  float alpha = 0.0;
-  vec3 hv = cross(pos, dir);
-  float h2 = dot(hv, hv);
-  bool captured = false;
-
-  for (int i = 0; i < 160; i++) {
-    float r = length(pos);
-    float dt = clamp(0.05 * r, 0.03, 1.5);
-    vec3 acc = -1.5 * h2 * pos / pow(r, 5.0);
-    vec3 next = pos + dir * dt;
-    dir = normalize(dir + acc * dt);
-    if (pos.y * next.y < 0.0) {
-      vec3 hit = mix(pos, next, pos.y / (pos.y - next.y));
-      vec4 d = disk(hit);
-      col += (1.0 - alpha) * d.rgb * d.a;
-      alpha += (1.0 - alpha) * d.a;
-    }
-    pos = next;
-    if (r < 1.0) { captured = true; break; }
-    if (r > 50.0 || alpha > 0.98) break;
-  }
-
-  if (!captured) col += (1.0 - alpha) * stars(dir);
-
-  // Soft glow from the photon ring just outside the shadow.
-  float b = length(cross(cam, normalize(fw * 1.55 + uv.x * rt + uv.y * up)));
-  col += vec3(1.0, 0.7, 0.4) * 0.05 * exp(-abs(b - 2.6) * 2.5);
-
-  col = 1.0 - exp(-col * 1.4);                   // filmic-ish tonemap
-  gl_FragColor = vec4(pow(col, vec3(0.9)), 1.0);
-}
-</script>
+<div id="stage">
+  <div class="wall"><div class="scene drift" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div><div class="pic"></div><div class="pic"></div></div></div>
+  <div class="saver" id="saver">
+    <div class="sv-date" id="svDate"></div>
+    <div class="sv-time" id="svTime" role="img"></div>
+    <div class="sv-row">
+      <div class="sv-wx glass dark" id="svWx"></div>
+      <div class="cal glass dark" id="svCal" aria-label="Calendar"></div>
+      <div class="sv-news glass dark" id="svNews">
+        <div class="src"><i id="newsDot"></i><span id="newsSrc"></span></div>
+        <div class="hl" id="newsHl"></div>
+        <div class="more" id="newsMore"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script src="weather.js"></script>
+<script src="glass.js"></script>
+<script src="prefs.js"></script>
+<script src="calendar.js"></script>
+<script src="news.js"></script>
+<script src="pictures.js"></script>
 <script>
 (function () {
-  // ---- Black hole ----
-  var canvas = document.getElementById('sky');
-  var gl = canvas.getContext('webgl', { antialias: false, preserveDrawingBuffer: false });
-  var scale = 0.5;   // render resolution vs. CSS pixels; adapts to the GPU
-  var start = performance.now(), last = start, slow = 0, fast = 0;
-  var prog, uRes, uT;
-  var running = true;   // false while a still or video covers the screen, so the GPU rests
+  function $(id) { return document.getElementById(id); }
+  var stage = $('stage'), body = document.body;
+  var prefs = settings.load();
+  look.apply();
+  stage.classList.toggle('bigtext', prefs.textSize === 'Large');
+  $('svWx').hidden = !prefs.svWeather;
+  $('svCal').hidden = !prefs.svCal;
+  $('svNews').hidden = !prefs.svNews;
 
-  function size() {
+  function fit() {
     var w = document.documentElement.clientWidth, h = document.documentElement.clientHeight;
-    canvas.width = Math.max(160, Math.round(w * scale));
-    canvas.height = Math.max(90, Math.round(h * scale));
-    if (gl) gl.viewport(0, 0, canvas.width, canvas.height);
+    var s = Math.min(w / 1600, h / 900);
+    stage.style.transform = 'scale(' + s + ')';
+    stage.style.left = ((w - 1600 * s) / 2) + 'px';
+    stage.style.top = ((h - 900 * s) / 2) + 'px';
   }
 
-  function shader(type, src) {
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
-    return s;
-  }
+  // ---- Pictures, aerials and the Gargantua scene ----
+  // The same picture Home blurs (Store currentPicture), changing on Settings → Pictures → Change picture.
+  // Aerials play in SaverView's VideoView under this page: Java calls saver.videoStarted() once it's on screen.
+  var EVERY = (pictures.EVERY[prefs.picEvery] || 15) * 6e4, FADE_MS = 2500;
+  var scene = null, sceneAt = Date.now(), turn = 0;
 
-  function initGL() {
-    prog = gl.createProgram();
-    gl.attachShader(prog, shader(gl.VERTEX_SHADER, 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }'));
-    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, document.getElementById('frag').textContent));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
-    var buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    var loc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(loc);
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    uRes = gl.getUniformLocation(prog, 'res');
-    uT = gl.getUniformLocation(prog, 't');
-  }
-
-  function frame(now) {
-    if (!running) return;
-    var dt = now - last;
-    last = now;
-    // Drop resolution when frames are slow, raise it when there's headroom.
-    // The scene moves slowly, so ~12fps still looks smooth; sharpness matters more.
-    if (dt > 100) { if (++slow > 20 && scale > 0.35) { scale *= 0.85; size(); slow = 0; } } else slow = 0;
-    if (dt < 45) { if (++fast > 120 && scale < 0.75) { scale *= 1.1; size(); fast = 0; } } else fast = 0;
-    gl.uniform2f(uRes, canvas.width, canvas.height);
-    gl.uniform1f(uT, (now - start) / 1000 + 40);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    requestAnimationFrame(frame);
-  }
-
-  if (gl) {
-    try { initGL(); size(); requestAnimationFrame(frame); }
-    catch (e) { console.log('gargantua: ' + e.message); }
-  }
-  window.addEventListener('resize', size);
-
-  function pauseHole() { running = false; }
-  function resumeHole() {
-    if (running || !gl || !prog) return;
-    running = true;
-    last = performance.now();
-    requestAnimationFrame(frame);
-  }
-
-  // ---- Modes ----
-  // Cycle: Gargantua → a 4K Apple aerial → film stills → another aerial → …
-  // Aerials and stills live on the TV (scripts/stills.sh pushes them); whatever's missing is skipped.
-  // Aerials play in a native VideoView behind this (transparent) page, so the terminal stays on top.
-  var HOLE_MS = 3 * 60 * 1000, STILL_MS = 20 * 1000, PER_ROUND = 8, FADE_MS = 2500, AERIAL_MAX_MS = 8 * 60 * 1000;
-  var CYCLE = ['hole', 'aerial', 'stills', 'aerial'];
-  function load(bridge) { try { return JSON.parse(bridge ? bridge.list() : '[]'); } catch (e) { return []; } }
-  var STILLS = load(window.Stills), AERIALS = load(window.Aerials);
-  var layers = [document.getElementById('stillA'), document.getElementById('stillB')];
-  var body = document.body;
-  var front = 0, step = -1, mode = null, modeTimer, current = null;
-  var stillQueue = [], aerialQueue = [];
-  var ORIGINS = ['0% 0%', '100% 0%', '0% 100%', '100% 100%', '50% 50%', '30% 60%', '70% 40%'];
-
-  // Re-reads the folder whenever a queue runs out, so newly pushed media shows up without a restart.
-  function next(queue, bridge) {
-    if (!queue.length) {
-      var q = load(bridge);
-      for (var i = q.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)), t = q[i]; q[i] = q[j]; q[j] = t; }
-      Array.prototype.push.apply(queue, q);
-    }
-    return queue.shift();
-  }
-
-  function nextMode() {
-    clearTimeout(modeTimer);
-    if (!stillQueue.length) STILLS = load(window.Stills);
-    if (!aerialQueue.length) AERIALS = load(window.Aerials);
-    for (var i = 0; i < CYCLE.length; i++) {
-      step = (step + 1) % CYCLE.length;
-      var m = CYCLE[step];
-      if (m === 'hole' || (m === 'stills' && STILLS.length) || (m === 'aerial' && AERIALS.length)) return enter(m);
-    }
-  }
-
-  function enter(m) {
-    var prev = mode;
-    mode = m;
-    if (prev === 'aerial' && m !== 'aerial') leaveAerial();
-    if (prev === 'stills' && m !== 'stills') hideStills();
-    if (m === 'hole') {
-      current = null;
-      resumeHole();
-      render();
-      modeTimer = setTimeout(nextMode, HOLE_MS);
-    } else if (m === 'stills') {
-      body.classList.add('stills');
-      stillsRound(PER_ROUND);
+  function showPic(pic) {
+    var was = scene;
+    scene = pic ? pic.kind : null;
+    if (was === 'gargantua') leaveGargantua();
+    if (pic && pic.kind === 'aerial') {
+      if (window.Aerials) Aerials.poster(pic.name);   // Home shows a still of it after wake; start making that now
+      if (!(window.Aerials && Aerials.play(pic.name))) { scene = null; return; }
     } else {
-      playAerial();
+      if (was === 'aerial') leaveAerial();
+      if (pic) pictures.show($('scene'), pic);
     }
   }
-
-  // Stills: slow Ken Burns zoom, crossfades, film grain and a drifting light leak.
-  function showStill(still, done) {
-    var img = new Image();
-    img.onload = function () {
-      var layer = layers[front ^= 1], old = layers[front ^ 1];
-      layer.style.transition = 'none';
-      layer.style.backgroundImage = 'url("' + still.src + '")';
-      layer.style.transformOrigin = ORIGINS[Math.floor(Math.random() * ORIGINS.length)];
-      layer.style.transform = 'scale(1)';
-      layer.style.zIndex = 2; old.style.zIndex = 1;
-      void layer.offsetWidth;
-      layer.style.transition = 'opacity ' + FADE_MS + 'ms ease, transform ' + (STILL_MS + FADE_MS * 2) + 'ms linear';
-      layer.style.opacity = 1;
-      layer.style.transform = 'scale(1.08)';
-      setTimeout(function () { if (layers[front] !== old) { old.style.opacity = 0; old.style.backgroundImage = 'none'; } }, FADE_MS + 100);
-      current = { cmd: 'feh ~/stills/' + still.name, title: still.title };
-      render();
-      if (done) done();
-    };
-    img.onerror = function () { if (done) done(); };
-    img.src = still.src;
-  }
-
-  function stillsRound(left) {
-    if (left === 0) return nextMode();
-    showStill(next(stillQueue, window.Stills), function () {
-      if (left === PER_ROUND) setTimeout(function () { if (mode === 'stills') { pauseHole(); stopVideo(); } }, FADE_MS + 100);
-    });
-    modeTimer = setTimeout(function () { stillsRound(left - 1); }, STILL_MS);
-  }
-
-  function hideStills() {
-    body.classList.remove('stills');
-    layers.forEach(function (l) { l.style.opacity = 0; });
-    setTimeout(function () { layers.forEach(function (l) { if (l.style.opacity === '0') l.style.backgroundImage = 'none'; }); }, FADE_MS + 100);
-  }
-
-  // Aerials: Java starts the video, then calls saver.videoStarted(); we fade the page away to reveal it.
-  var playing = null;
-  function playAerial() {
-    playing = next(aerialQueue, window.Aerials);
-    if (!(window.Aerials && Aerials.play(playing.name))) return nextMode();
-    modeTimer = setTimeout(nextMode, AERIAL_MAX_MS);
-  }
-  function videoStarted() {
-    if (mode !== 'aerial' || !playing) return;
-    current = { cmd: 'mpv ~/aerials/' + playing.name, title: playing.title + (playing.kind ? '  <span class="d">' + playing.kind + '</span>' : ''), html: true };
-    render();
-    body.classList.add('video');
-    hideStills();
-    setTimeout(function () { if (mode === 'aerial') pauseHole(); }, FADE_MS + 100);
-  }
-  function videoEnded() { if (mode === 'aerial') nextMode(); }
+  function videoStarted() { if (scene === 'aerial') body.classList.add('video'); }
+  function videoEnded() { if (scene === 'aerial') advance(); }
   function leaveAerial() {
-    playing = null;
-    if (mode === 'hole') resumeHole();
     body.classList.remove('video');
-    setTimeout(function () { if (mode !== 'aerial' && mode !== 'stills') stopVideo(); }, FADE_MS + 100);
+    setTimeout(function () { if (scene !== 'aerial' && window.Aerials) Aerials.stop(); }, FADE_MS + 100);
   }
-  function stopVideo() { if (window.Aerials && mode !== 'aerial') Aerials.stop(); }
 
-  // Film grain: a small noise canvas redrawn ~14x a second, only while stills are up.
-  var grain = document.getElementById('grain'), gctx = grain.getContext('2d');
-  grain.width = 320; grain.height = 180;
-  var gimg = gctx.createImageData(320, 180);
-  setInterval(function () {
-    if (mode !== 'stills') return;
-    var d = gimg.data;
-    for (var i = 0; i < d.length; i += 4) { var v = Math.random() * 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
-    gctx.putImageData(gimg, 0, 0);
-  }, 70);
+  function showGargantua() {
+    if (scene === 'aerial') leaveAerial();
+    scene = 'gargantua';
+    var f = document.createElement('iframe');
+    f.id = 'garg'; f.src = 'gargantua.html#scene';
+    document.body.appendChild(f);
+    f.onload = function () { if (scene === 'gargantua') { f.classList.add('on'); body.classList.add('garg'); } };
+  }
+  function leaveGargantua() {
+    var f = $('garg');
+    body.classList.remove('garg');
+    if (!f) return;
+    f.id = ''; f.classList.remove('on');
+    setTimeout(function () { f.remove(); }, FADE_MS + 100);
+  }
 
-  window.saver = { next: nextMode, videoStarted: videoStarted, videoEnded: videoEnded, mode: function () { return mode; } };
+  // Gargantua, when it's on, is one more entry in the rotation.
+  function advance() {
+    var n = pictures.list(prefs).length;
+    turn++;
+    var garg = prefs.gargantua && scene !== 'gargantua' &&
+      (!n || (prefs.picShuffle ? Math.random() < 1 / (n + 1) : turn % (n + 1) === 0));
+    if (garg) showGargantua(); else showPic(pictures.next(prefs));
+    sceneAt = Date.now();
+  }
 
-  // ---- Terminal ----
-  var term = document.getElementById('term');
+  function startScene() {
+    var pic = pictures.current(prefs);
+    if (!pic && prefs.gargantua) return showGargantua();
+    showPic(pic);
+    sceneAt = pic && pic.at ? pic.at : Date.now();
+  }
+
+  // ---- Date and clock ----
+  function renderTime(now) {
+    $('svDate').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
+    drawTime(fmt.time(now, prefs.clock24).replace(/\s?[AP]M$/i, ''));
+  }
+
+  // Clock as glass: the time rendered into canvas masks (fill + top edge) in the headline font.
+  // Redrawn only when the text or font changes, once the font has loaded.
+  var shownTime = '', shownFont = '';
+  function drawTime(text) {
+    var el = $('svTime'), cs = getComputedStyle(el), size = 230;
+    var spec = cs.fontWeight + ' ' + size + 'px ' + cs.fontFamily;
+    if (text === shownTime && spec === shownFont) return;
+    shownTime = text; shownFont = spec;
+    var ls = parseFloat(cs.letterSpacing) || 0;
+    el.setAttribute('aria-label', text);
+    function paint() {
+      if (shownTime !== text) return;
+      if (prefs.clockStyle === 'Solid' || !glass.supported) {
+        el.innerHTML = '<div class="plain"></div>'; el.firstChild.textContent = text; return;
+      }
+      function mask(edge) {
+        var c = document.createElement('canvas'), x = c.getContext('2d');
+        x.font = spec; try { x.letterSpacing = ls + 'px'; } catch (e) {}
+        var w = Math.ceil(x.measureText(text).width) + 40, h = Math.ceil(size * 1.16);
+        c.width = w; c.height = h;
+        x.font = spec; try { x.letterSpacing = ls + 'px'; } catch (e) {}
+        x.textBaseline = 'alphabetic';
+        x.fillStyle = '#fff'; x.fillText(text, 20, size * .94);
+        // Top-edge highlight: the glyphs minus themselves shifted down a touch (no outline, so no seams).
+        if (edge) { x.globalCompositeOperation = 'destination-out'; x.fillText(text, 21, size * .94 + 3); }
+        return { url: 'url(' + c.toDataURL() + ')', w: w, h: h };
+      }
+      var fill = mask(false), rim = mask(true);
+      el.innerHTML = '<div class="layer shadow"></div><div class="layer frost"></div><div class="layer rim"></div>';
+      [['shadow', fill], ['frost', fill], ['rim', rim]].forEach(function (p) {
+        var d = el.querySelector('.' + p[0]);
+        d.style.width = p[1].w + 'px'; d.style.height = p[1].h + 'px';
+        d.style.webkitMaskImage = p[1].url; d.style.maskImage = p[1].url;
+      });
+    }
+    if (document.fonts && document.fonts.load) document.fonts.load(spec, text).then(paint, paint); else paint();
+  }
+
+  // ---- Weather card ----
   var wx = null;
-  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  var MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  function pad(n) { return (n < 10 ? '0' : '') + n; }
-  function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
-  function tz(now) {
-    var m = now.toLocaleTimeString('en-US', { timeZoneName: 'short' }).match(/[A-Z]{2,5}$/);
-    return m ? m[0] : '';
+  function title(s) { return s.replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+  // Short words for the 3-day row: Rain, Cloudy, Clear, Snow, Storms, Fog.
+  function short(t) {
+    return /thunder/.test(t) ? 'Storms' : /snow/.test(t) ? 'Snow' : /rain|drizzle|showers/.test(t) ? 'Rain'
+      : /fog/.test(t) ? 'Fog' : /cloud|overcast/.test(t) ? 'Cloudy' : 'Clear';
   }
-  function unixDate(now) {
-    var d = now.getDate();
-    return DAYS[now.getDay()] + ' ' + MONS[now.getMonth()] + ' ' + (d < 10 ? ' ' : '') + d + ' ' +
-      pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' ' + tz(now) + ' ' + now.getFullYear();
+  function renderWx() {
+    var el = $('svWx');
+    if (!wx) { el.innerHTML = '<div class="city">CHICAGO</div><div class="cond">Weather is on its way</div>'; return; }
+    el.innerHTML = '<div class="city">CHICAGO</div><div class="now"></div><div class="cond"></div><div class="hl"></div><div class="days"></div>';
+    el.querySelector('.now').textContent = wx.temp + '°';
+    el.querySelector('.cond').textContent = title(wx.text);
+    el.querySelector('.hl').textContent = 'H:' + wx.hi + '° L:' + wx.lo + '°';
+    (wx.days || []).slice(0, 3).forEach(function (d) {
+      var s = document.createElement('span');
+      s.innerHTML = '<b></b>';
+      s.firstChild.textContent = d.dow;
+      s.appendChild(document.createTextNode(d.hi + '° · ' + short(d.text)));
+      el.querySelector('.days').appendChild(s);
+    });
   }
-  function prompt(cmd) { return '<span class="p">griffin@firetv</span><span class="d">:~$</span> ' + cmd; }
+  function refreshWeather() { weather.get(function (w) { wx = w; renderWx(); }, prefs.units); }
 
-  function render() {
+  // ---- Headlines: one at a time, cycling through the enabled topics ----
+  var newsStep = 0;
+  function renderNews() {
+    var n = news.at(newsStep, prefs);
+    if (!n) {
+      $('newsSrc').textContent = 'Headlines';
+      $('newsDot').style.background = '';
+      $('newsHl').textContent = 'All topics are off. Turn some on in Settings → News.';
+      $('newsMore').textContent = '';
+      return;
+    }
+    $('newsSrc').textContent = n.topic;
+    $('newsDot').style.background = n.color;
+    $('newsHl').textContent = n.title;
+    $('newsMore').textContent = 'Headlines · ' + n.n + ' of ' + n.total;
+  }
+  var NEWS_MS = { '8 seconds': 8000, '15 seconds': 15000, '30 seconds': 30000 }[prefs.newsEvery] || 8000;
+  setInterval(function () {
+    var h = $('newsHl');
+    h.style.opacity = 0;
+    setTimeout(function () { newsStep++; renderNews(); h.style.opacity = 1; }, 500);
+  }, NEWS_MS);
+
+  // Everything on screen refreshes every 15s; the picture moves on when its time is up.
+  function refresh() {
     var now = new Date();
-    var lines = [prompt('date'), '<span class="h">' + unixDate(now) + '</span>', prompt('weather chicago')];
-    if (wx) {
-      lines.push('<span class="h">Chicago, IL</span>  ' + wx.temp + '°F  ' + esc(wx.text) + '  <span class="d">feels ' + wx.feels + '°</span>');
-      lines.push('<span class="d">hi</span> ' + wx.hi + '°  <span class="d">lo</span> ' + wx.lo + '°  <span class="d">wind</span> ' + wx.wind + ' mph ' + wx.windDir + '  <span class="d">hum</span> ' + wx.humidity + '%');
-      lines.push('<span class="d">sunrise</span> ' + wx.sunrise + '  <span class="d">sunset</span> ' + wx.sunset);
-    } else {
-      lines.push('<span class="d">fetching…</span>');
-    }
-    if (current) {
-      lines.push(prompt(esc(current.cmd)));
-      lines.push('<span class="h">' + (current.html ? current.title : esc(current.title)) + '</span>');
-    }
-    lines.push(prompt('<span class="cur"></span>'));
-    term.innerHTML = lines.join('\n');
+    renderTime(now);
+    calendar.render($('svCal'), now, prefs);
+    if (Date.now() - sceneAt >= EVERY) advance();
   }
 
-  // Nudge the text a little every few minutes so nothing sits in one spot for hours.
-  function drift() {
-    term.style.transform = 'translate(' + Math.round(Math.random() * 3 - 1.5) + 'vw,' + Math.round(-Math.random() * 3) + 'vh)';
-  }
+  window.saver = { videoStarted: videoStarted, videoEnded: videoEnded, next: advance, gargantua: showGargantua, scene: function () { return scene; } };
+  document.addEventListener('livedata', function () { calendar.render($('svCal'), new Date(), prefs); renderNews(); });
 
-  function refreshWeather() { weather.get(function (w) { wx = w; render(); }); }
-
-  nextMode();
+  window.addEventListener('resize', fit);
+  fit();
+  startScene();
+  refresh();
+  renderWx();
+  renderNews();
   refreshWeather();
-  setInterval(render, 1000);
+  setInterval(refresh, 15000);
   setInterval(refreshWeather, 10 * 60 * 1000);
-  setInterval(drift, 3 * 60 * 1000);
 })();
 </script>
 </body>

@@ -123,6 +123,7 @@ public class HomeGuard extends AccessibilityService {
         }
         if (Prefs.isPaused(this)) return;
         showCover();
+        MainActivity.landHome();
         openHome();
         retryUntil = System.currentTimeMillis() + GIVE_UP_MS;
         main.removeCallbacks(retry);

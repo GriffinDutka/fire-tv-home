@@ -42,11 +42,13 @@ public class MainActivity extends Activity {
     private boolean resumed;
     private boolean okDown, okHeld;
     private final Runnable snapshot = this::snapshot;
+    private static java.lang.ref.WeakReference<MainActivity> current;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
+        current = new java.lang.ref.WeakReference<>(this);
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#0B0B0C"));
         web.setFocusable(false);
@@ -91,6 +93,15 @@ public class MainActivity extends Activity {
     /** Picture of the home screen that HomeGuard flashes over Amazon's home while ours starts. */
     private void snapshot() {
         if (!resumed || web.getWidth() == 0) return;
+        web.postDelayed(snapshot, SNAPSHOT_EVERY_MS);
+        // Only while Home sits on its landing spot, so the cover matches where the Home button lands.
+        web.evaluateJavascript("!!(window.tv && tv.atHome && tv.atHome())", v -> {
+            if ("true".equals(v)) capture();
+        });
+    }
+
+    private void capture() {
+        if (!resumed || web.getWidth() == 0) return;
         try {
             Bitmap b = Bitmap.createBitmap(web.getWidth(), web.getHeight(), Bitmap.Config.RGB_565);
             web.draw(new Canvas(b));
@@ -108,13 +119,23 @@ public class MainActivity extends Activity {
             }).start();
         } catch (RuntimeException | OutOfMemoryError ignored) {
         }
-        web.postDelayed(snapshot, SNAPSHOT_EVERY_MS);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        // Only the Home button (HomeGuard or the system) brings Home back this way: land on the first Favorite.
+        js("window.tv && tv.home && tv.home()");
         js("window.tv && tv.resume()");
+    }
+
+    /**
+     * HomeGuard calls this the moment the Home button shows Amazon's home, seconds before Fire OS
+     * lets us back in front, so Home is already on its landing spot when it reappears.
+     */
+    static void landHome() {
+        MainActivity a = current == null ? null : current.get();
+        if (a != null) a.js("window.tv && tv.home && tv.home()");
     }
 
     private void hideSystemUi() {

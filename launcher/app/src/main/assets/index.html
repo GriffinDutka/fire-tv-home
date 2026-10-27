@@ -26,6 +26,8 @@ html, body { background: #000; }
 #stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); }
 #stage.insettings .homeui { opacity: 0; transition: none; }
 #stage.instant .wall, #stage.instant .blurred, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
+/* The Home button jumps straight back to the first Favorite, without sliding the rows there. */
+#stage.jump .scroll, #stage.jump .row, #stage.jump .tile { transition: none !important; }
 
 /* ---- Top bar ---- */
 .top { position: absolute; left: 72px; right: 72px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; }
@@ -617,7 +619,26 @@ html, body { background: #000; }
     stage.classList.remove('instant');
   }
 
-  window.tv = { key: key, resume: resume, pause: pause };
+  // The Home button always lands on the same spot: the first Favorite, every row scrolled back to its
+  // start, with Settings and any options sheet closed. Coming back from an app with Back keeps your place.
+  function goHome() {
+    if (window.settingsScreen && settingsScreen.isOpen()) settingsScreen.close();
+    closeSheet(); endMove();
+    st.r = firstRow(); st.tab = 0;
+    for (var i = 0; i < st.col.length; i++) st.col[i] = 0;
+    shelves.forEach(function (sh) { sh.off = 0; if (sh.row) sh.row.style.transform = ''; });
+    stage.classList.add('jump');
+    render();
+    void stage.offsetWidth;
+    stage.classList.remove('jump');
+  }
+  // What HomeGuard's snapshot should show, so the cover it flashes matches where Home lands.
+  function atHome() {
+    return st.r === firstRow() && !st.col[st.r] && !st.sheet && !st.moving &&
+      !(window.settingsScreen && settingsScreen.isOpen());
+  }
+
+  window.tv = { key: key, resume: resume, pause: pause, home: goHome, atHome: atHome };
   TABS[2].caption = claudeCaption();
 
   document.addEventListener('livedata', function () { renderWifi(); renderCal(); });

@@ -56,6 +56,8 @@ The home screen shows Chicago weather and a 3-day forecast from [Open-Meteo](htt
 - **System → Screensaver** starts the screensaver right away (`ScreensaverActivity`, same content as the DreamService).
 - **Settings** adds *Hidden apps* (bring them back) and screensaver toggles for Gargantua, aerials and film stills.
 
+**Volume:** Fire OS keeps the volume keys to itself and always shows its own bar, so `HomeGuard` watches for that panel and covers it with `VolumeIsland`, an iPhone-style bar that fills with white to the level, speaker inside (slashed when muted).
+
 **Screensaver:** `Gargantua` is a DreamService that renders Interstellar's black hole (WebGL ray-bent accretion disk, `assets/screensaver.html`) with a terminal readout of the date and Chicago weather. `install-launcher.sh` sets it as the screensaver; `restore.sh` puts Amazon's back.
 
 **Screensaver cycle:** Gargantua (3 min) → a 4K Apple aerial → 8 film stills (20s each) → another aerial → repeat. Anything not on the TV, or turned off in Settings, is skipped. The terminal also prints the next three days' forecast.

@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="guard_description">Opens Griffin Home whenever Amazon\'s home screen appears. Turn off to use Amazon\'s home.</string>
+    <string name="guard_description">Opens Griffin Home whenever Amazon\'s home screen appears. Also draws the volume bar. Turn off to use Amazon\'s home.</string>
 </resources>

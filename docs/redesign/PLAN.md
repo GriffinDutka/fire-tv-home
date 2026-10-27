@@ -2,6 +2,7 @@
 
 Planning only. Nothing here changes the TV yet. This is the brief for building the redesign on the Mac.
 
+- **Full spec (every value, string and rule):** [`SPEC.md`](SPEC.md)
 - **Mockup:** [`mockup.html`](mockup.html). Open it in a browser and drive it with the arrow keys, Enter (OK), H (hold OK) and Esc (Back). It opens on the screensaver; any key wakes it to Home.
 - **Live mockup (private, Griffin's account):** https://claude.ai/artifact/7urSSqupgRV34PHv268HoT
 - **Screens:** [`screens/`](screens/)
@@ -38,7 +39,7 @@ Line 2 is one true thing about right now, picked at random from what applies:
 - Next calendar event: "Dinner with Sam at 7:30 PM", "… in 40 minutes", or "Dentist at 9:15 AM tomorrow. Maybe just one episode." late at night
 - Holiday countdowns within 3 weeks (Halloween, Thanksgiving, Christmas, New Year's Eve, Valentine's Day, the Fourth). These are weighted double.
 
-The full lists and logic are in `mockup.html` (`hellos()`, `subs()`, `holiday()`).
+Every line, condition and weight is in [SPEC.md §11](SPEC.md#11-greeting).
 
 ## Settings
 

@@ -1,5 +1,5 @@
 // window.live: calendar, headlines and Wi-Fi for Home and the screensaver, kept fresh and cached.
-// Needs data.js, ical.js, news.js and steam.js loaded first.
+// Needs data.js, ical.js, feeds.js and steam.js loaded first.
 //
 //   live.start(opts)      Call once. Shows cached data at once, then refreshes: calendar every
 //                         15 min, news and Steam every 30 min, Wi-Fi every 30s.
@@ -100,11 +100,11 @@
   function topicItems(t, now) {
     if (t.name === 'Steam') return data.get(steam.URL).then(function (json) { return steam.headlines(json, now); });
     return Promise.all(t.feeds.map(function (url) {
-      return data.get(url).then(function (xml) { return news.parse(xml); }).catch(function () { return null; });
+      return data.get(url).then(function (xml) { return feeds.parse(xml); }).catch(function () { return null; });
     })).then(function (lists) {
       var ok = lists.filter(function (l) { return l && l.length; });
       if (!ok.length) throw new Error('no feeds');
-      return news.newest([].concat.apply([], ok), 5).map(function (it) { return news.headline(t, it); });
+      return feeds.newest([].concat.apply([], ok), 5).map(function (it) { return feeds.headline(t, it); });
     });
   }
 
@@ -112,7 +112,7 @@
     if (busy.news) return Promise.resolve();
     busy.news = true;
     var now = Date.now(), topics = {};
-    return Promise.all(news.TOPICS.map(function (t) {
+    return Promise.all(feeds.TOPICS.map(function (t) {
       return topicItems(t, now).then(function (items) {
         if (items.length) topics[t.name] = items;
         else if (feed.topics[t.name]) topics[t.name] = feed.topics[t.name];
@@ -128,13 +128,13 @@
   }
 
   function topics() {
-    return news.TOPICS.map(function (t) {
+    return feeds.TOPICS.map(function (t) {
       return { src: t.name, color: t.color, items: (feed.topics[t.name] || []).slice() };
     });
   }
 
   function headline(step, enabled) {
-    var on = news.TOPICS.filter(function (t) { return !enabled || enabled[t.name] !== false; });
+    var on = feeds.TOPICS.filter(function (t) { return !enabled || enabled[t.name] !== false; });
     if (!on.length) return null;
     var list = on.filter(function (t) { return feed.topics[t.name] && feed.topics[t.name].length; });
     if (!list.length) return { src: 'Headlines', color: '#FFFFFF', hl: '', link: '', at: 0, pos: 0, total: 0 };

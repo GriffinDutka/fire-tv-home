@@ -42,7 +42,7 @@ function tv(online) {
 }
 
 function load() {
-  for (const f of ['data.js', 'ical.js', 'news.js', 'steam.js', 'live.js']) {
+  for (const f of ['data.js', 'ical.js', 'feeds.js', 'steam.js', 'live.js']) {
     const p = path.join(ASSETS, f);
     delete require.cache[require.resolve(p)];
     const mod = require(p);

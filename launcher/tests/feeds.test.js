@@ -1,4 +1,4 @@
-// RSS/Atom parsing and the Steam lines. Node has no DOMParser, so this runs news.js's regex
+// RSS/Atom parsing and the Steam lines. Node has no DOMParser, so this runs feeds.js's regex
 // reader (also its fallback for broken XML); the TV's WebView takes the DOMParser path.
 process.env.TZ = 'America/Chicago';
 
@@ -6,13 +6,13 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const news = require('../app/src/main/assets/news.js');
+const feeds = require('../app/src/main/assets/feeds.js');
 const steam = require('../app/src/main/assets/steam.js');
 
 const fixture = (name) => fs.readFileSync(path.join(__dirname, 'fixtures', name), 'utf8');
 
 test('RSS: titles decoded, links, dates; media:title and blank items ignored', () => {
-  const items = news.parse(fixture('rss.xml'));
+  const items = feeds.parse(fixture('rss.xml'));
   assert.equal(items.length, 7);
   assert.deepEqual(items[0], { title: 'Microsoft offers to buy out a quarter of its workforce', link: 'https://example.com/a1', at: Date.parse('2026-10-26T22:36:06Z') });
   assert.equal(items[1].title, '‘Star Trek’ icon has died');
@@ -23,12 +23,12 @@ test('RSS: titles decoded, links, dates; media:title and blank items ignored', (
 });
 
 test('newest 5, duplicates dropped', () => {
-  const top = news.newest(news.parse(fixture('rss.xml')), 5);
+  const top = feeds.newest(feeds.parse(fixture('rss.xml')), 5);
   assert.deepEqual(top.map((i) => i.link), ['https://example.com/a3', 'https://example.com/a1', 'https://example.com/a2', 'https://example.com/a4', 'https://example.com/a5']);
 });
 
 test('Atom: alternate link, published date, HTML titles', () => {
-  const items = news.parse(fixture('atom.xml'));
+  const items = feeds.parse(fixture('atom.xml'));
   assert.deepEqual(items.map((i) => i.title), [
     'OpenAI announces three big science discoveries',
     'Bulls overwhelmed by Boston & the defense remains an issue',
@@ -39,14 +39,14 @@ test('Atom: alternate link, published date, HTML titles', () => {
 });
 
 test('headline card shape', () => {
-  const t = news.TOPICS.find((x) => x.name === 'Chicago');
-  assert.deepEqual(news.headline(t, { title: 'Lakefront Trail reopens', link: 'https://x', at: 5 }),
+  const t = feeds.TOPICS.find((x) => x.name === 'Chicago');
+  assert.deepEqual(feeds.headline(t, { title: 'Lakefront Trail reopens', link: 'https://x', at: 5 }),
     { src: 'Chicago', color: '#FF453A', hl: 'Lakefront Trail reopens', link: 'https://x', at: 5 });
-  assert.deepEqual(news.TOPICS.map((x) => x.name), ['Tech', 'AI', 'Sci-fi shows', 'Gaming', 'Steam', 'Chicago']);
+  assert.deepEqual(feeds.TOPICS.map((x) => x.name), ['Tech', 'AI', 'Sci-fi shows', 'Gaming', 'Steam', 'Chicago']);
 });
 
 test('decode: numeric, hex, named, unknown entities', () => {
-  assert.equal(news.decode('A &#x2014; B &hellip; &bogus; &#128512;'), 'A — B … &bogus; 😀');
+  assert.equal(feeds.decode('A &#x2014; B &hellip; &bogus; &#128512;'), 'A — B … &bogus; 😀');
 });
 
 const NOW = new Date('2026-10-26T12:00:00-05:00');

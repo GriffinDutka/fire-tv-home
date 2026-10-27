@@ -1,8 +1,8 @@
-// window.news: headline feeds per topic (SPEC §14), parsed from RSS or Atom.
-//   news.TOPICS             [{name, color, feeds: [url]}] in rotation order (Steam comes from steam.js)
-//   news.parse(xml)         → [{title, link, at}] for one feed (at = ms since epoch, 0 if undated)
-//   news.newest(items, n)   → the n newest, duplicates dropped
-//   news.headline(topic, item) → {src, color, hl, link, at}: the mockup's headline card shape
+// window.feeds: headline feeds per topic (SPEC §14), parsed from RSS or Atom.
+//   feeds.TOPICS             [{name, color, feeds: [url]}] in rotation order (Steam comes from steam.js)
+//   feeds.parse(xml)         → [{title, link, at}] for one feed (at = ms since epoch, 0 if undated)
+//   feeds.newest(items, n)   → the n newest, duplicates dropped
+//   feeds.headline(topic, item) → {src, color, hl, link, at}: the mockup's headline card shape
 // Feeds checked 2026-10-26. Polygon and IGN are their post-redirect addresses; Sci-fi shows uses
 // Gizmodo's io9 and Den of Geek's TV feeds rather than the whole sites.
 (function () {
@@ -134,5 +134,5 @@
 
   var api = { TOPICS: TOPICS, parse: parse, newest: newest, headline: headline, decode: decode };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  if (typeof window !== 'undefined') window.news = api;
+  if (typeof window !== 'undefined') window.feeds = api;
 })();

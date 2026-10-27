@@ -74,16 +74,16 @@ html, body { background: #000; }
 
 /* ---- Rows ---- */
 .scroll { position: absolute; left: 0; right: 0; top: 520px; transition: transform 360ms cubic-bezier(.2,.8,.2,1); }
-.shelf { padding: 0 0 0 72px; height: 284px; transition: opacity 300ms ease; }
-.shelf .label { font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 18px; }
+.shelf { padding: 0 0 0 72px; height: 312px; transition: opacity 300ms ease; }
+.shelf .label { font-size: 21px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 28px; }
 .row { display: flex; gap: 36px; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
-.tile { flex: none; position: relative; width: 288px; height: 164px; border-radius: 30px; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px 22px; box-sizing: border-box; color: #fff; font-size: 20px; font-weight: 500;
+.tile { flex: none; position: relative; width: 328px; height: 186px; border-radius: 32px; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px 22px; box-sizing: border-box; color: #fff; font-size: 20px; font-weight: 500;
   transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease; }
 /* App tiles: the app's own art with the glass rim and sheen on top, no backdrop blur. */
 .tile.app { padding: 0; align-items: center; justify-content: center; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: rgba(255,255,255,calc(var(--rim) * .9)); background-position: center; background-size: cover; background-repeat: no-repeat; }
-.tile.app .logo { width: 116px; height: 116px; display: block; object-fit: contain; }
-.tile.app .word { font: 700 50px/1 var(--sans); letter-spacing: -.02em; white-space: nowrap; }
-.tile.app .word.long { font-size: 38px; }
+.tile.app .logo { width: 132px; height: 132px; display: block; object-fit: contain; }
+.tile.app .word { font: 700 56px/1 var(--sans); letter-spacing: -.02em; white-space: nowrap; }
+.tile.app .word.long { font-size: 43px; }
 .tile.focus { transform: translateY(-8px) scale(1.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 28px 50px rgba(0,0,0,.45); border-color: rgba(255,255,255,.7); }
 /* One light sweep across a tile as it gains focus. */
 .tile.focus::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
@@ -294,7 +294,7 @@ html, body { background: #000; }
     if (!shelves[st.r].items.length) st.r = 2;
   }
 
-  // Tile art: the app's TV banner fills the tile; otherwise its icon at 116px on the app's color,
+  // Tile art: the app's TV banner fills the tile; otherwise its icon at 132px on the app's color,
   // or its name as a wordmark if Android has no icon for it.
   var icons = {};
   function art(t, a) {
@@ -338,13 +338,13 @@ html, body { background: #000; }
     var it = current();
     if (st.r >= 0 && it) {
       // Slide the row to keep focus in the safe area, and the page to keep the row on screen.
-      // x is the tile's left edge inside the row (tiles are 288 wide with 36 between).
-      var sh = shelves[st.r], W = 1600 - 72 * 2, x = st.col[st.r] * (288 + 36);
+      // x is the tile's left edge inside the row (tiles are 328 wide with 36 between).
+      var sh = shelves[st.r], W = 1600 - 72 * 2, x = st.col[st.r] * (328 + 36);
       if (x - sh.off < 0) sh.off = x;
-      if (x + 288 - sh.off > W) sh.off = x + 288 - W;
+      if (x + 328 - sh.off > W) sh.off = x + 328 - W;
       sh.row.style.transform = 'translateX(' + (-sh.off) + 'px)';
     }
-    var y = st.r <= 0 ? 0 : st.r * 284 - 150;
+    var y = st.r * 312;   // the focused row takes the Favorites spot, so its name below stays on screen
     $('scroll').style.transform = 'translateY(' + (-y) + 'px)';
     stage.classList.toggle('down', st.r > 0);
 

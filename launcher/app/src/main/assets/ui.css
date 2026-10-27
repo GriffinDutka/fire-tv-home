@@ -77,7 +77,7 @@ body { font-family: var(--sans); color: var(--text); -webkit-font-smoothing: ant
 
 /* Picture layer: one picture under everything, 6% oversized so it can drift. */
 .wall { position: absolute; inset: 0; overflow: hidden; }
-.scene { position: absolute; inset: -6%; }
+.scene { position: absolute; inset: -6%; z-index: 0; }   /* own stacking context: the .pic layers' z-index stays inside */
 .scene .pic { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 3s ease; }
 .scene .pic.on { opacity: 1; }
 /* Placeholder dusk scene until real pictures exist. */

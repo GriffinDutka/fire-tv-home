@@ -8,10 +8,16 @@
 <style>
 /* Home: the picture blurred behind a greeting, widgets and rows of apps (docs/redesign/SPEC.md §5, §7–10). */
 html, body { background: #000; }
-.wall { transition: filter 900ms cubic-bezier(.2,.8,.2,1), transform 900ms cubic-bezier(.2,.8,.2,1); }
-/* Lock screen → home: the same picture, sharp on the screensaver, blurred and dimmed behind Home. */
-#stage.awake .wall { filter: blur(var(--homeBlur)) brightness(.72) saturate(1.25); transform: scale(1.08); }
-#stage.awake.insettings .wall { filter: blur(calc(var(--homeBlur) + 14px)) brightness(.58) saturate(1.2); }
+.wall { transition: transform 900ms cubic-bezier(.2,.8,.2,1); }
+/* Lock screen → home: the same picture, sharp on the screensaver, blurred and dimmed behind Home.
+   The blurred copy is drawn once per picture into a small canvas (drawBlur) and faded in over the sharp one:
+   animating a CSS blur on the TV ran the blur-in at ~9fps. */
+#stage.awake .wall { transform: scale(1.08); }
+.blurred { position: absolute; left: -6%; top: -6%; width: 112%; height: 112%; opacity: 0; transition: opacity 900ms cubic-bezier(.2,.8,.2,1); }
+#stage.awake .blurred { opacity: 1; }
+/* Settings dims the picture a little further (brightness .72 → .58). */
+.dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 320ms ease; }
+#stage.awake.insettings .dim { opacity: .2; }
 .shade { position: absolute; inset: 0; transition: background 400ms ease, opacity 400ms ease;
   background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 55%), linear-gradient(to right, rgba(0,0,0,.35), rgba(0,0,0,0) 50%); }
 #stage.down .shade { background: rgba(0,0,0,.45); }
@@ -19,7 +25,7 @@ html, body { background: #000; }
 .homeui { position: absolute; inset: 0; transition: opacity 450ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
 #stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); }
 #stage.insettings .homeui { opacity: 0; transition: none; }
-#stage.instant .wall, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
+#stage.instant .wall, #stage.instant .blurred, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
 
 /* ---- Top bar ---- */
 .top { position: absolute; left: 72px; right: 72px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; }
@@ -138,7 +144,7 @@ html, body { background: #000; }
 </head>
 <body>
 <div id="stage">
-  <div class="wall" id="wall"><!-- No drift behind Home: a moving picture re-blurs it and every glass panel each frame (25fps on the TV vs 37 still). --><div class="scene" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div><div class="pic"></div><div class="pic"></div></div></div>
+  <div class="wall" id="wall"><!-- No drift behind Home: a moving picture re-blurs it and every glass panel each frame (25fps on the TV vs 37 still). --><div class="scene" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div><div class="pic"></div><div class="pic"></div></div><canvas class="blurred" id="blurred"></canvas><div class="dim"></div></div>
   <div class="shade"></div>
 
   <div class="homeui">
@@ -233,8 +239,8 @@ html, body { background: #000; }
   }
 
   // ---- Apps ----
-  function installedApps() {
-    try { return JSON.parse(A ? A.apps() : '[]'); } catch (e) { return []; }
+  function installedApps(raw) {
+    try { return JSON.parse(raw); } catch (e) { return []; }
   }
   function app(a) {
     var b = BRAND[a.pkg] || {};
@@ -243,11 +249,16 @@ html, body { background: #000; }
 
   var shelves = [], st = { r: 0, col: [0, 0, 0], tab: 0, moving: false, sheet: null, opt: 0 };
 
+  // Rebuilds the rows, unless nothing changed since last time (resume runs this on every return).
+  var builtFrom = '';
   function build() {
-    var apps = installedApps().map(app), byPkg = {};
+    var raw = A ? A.apps() : '[]', favs0 = store.get('favorites', null), hidden = store.get('hidden', []) || [];
+    var sig = raw + JSON.stringify(favs0) + JSON.stringify(hidden);
+    if (sig === builtFrom && shelves.length) return;
+    builtFrom = sig;
+    var apps = installedApps(raw).map(app), byPkg = {};
     apps.forEach(function (a) { byPkg[a.pkg] = a; });
-    var favs = (store.get('favorites', null) || DEFAULT_FAVS).filter(function (p) { return byPkg[p]; });
-    var hidden = store.get('hidden', []) || [];
+    var favs = (favs0 || DEFAULT_FAVS).filter(function (p) { return byPkg[p]; });
     shelves = [
       { label: 'Favorites', kind: 'Favorite', items: favs.map(function (p) { return byPkg[p]; }) },
       { label: 'All apps', kind: 'App', items: apps.filter(function (a) { return favs.indexOf(a.pkg) < 0 && hidden.indexOf(a.pkg) < 0; }) },
@@ -511,10 +522,54 @@ html, body { background: #000; }
   function refreshWeather() { weather.get(function (w) { var first = !wx; wx = w; renderWeather(); if (first) greet(); }, prefs.units); }
 
   // ---- Picture ----
-  function showPicture(instant) { pictures.show($('scene'), pictures.current(prefs), retryPoster, instant === true); }
-  // An aerial's still frame may still be in the works the first time; try again shortly.
+  function showPicture(instant, then) {
+    pictures.show($('scene'), pictures.current(prefs), function (ok) {
+      // An aerial's still frame may still be in the works the first time; try again shortly.
+      clearTimeout(posterTimer);
+      if (!ok) posterTimer = setTimeout(showPicture, 4000);
+      drawBlur();
+      if (then) then();
+    }, instant === true);
+  }
   var posterTimer;
-  function retryPoster(ok) { clearTimeout(posterTimer); if (!ok) posterTimer = setTimeout(showPicture, 4000); }
+
+  // The blurred, dimmed picture behind Home: drawn once into a 640x360 canvas (a quarter-ish of the
+  // 1792x1008 picture box, so the Home blur scales down with it) and stretched over the sharp picture.
+  var BW = 640, BH = 360;
+  function drawBlur() {
+    var c = $('blurred'), x = c.getContext('2d'), scene = $('scene');
+    var front = scene.querySelectorAll('.pic')[scene._front || 0], url = front.classList.contains('on') && front.dataset.url;
+    var px = store.get('homeBlur', 28) * BW / 1792, m = Math.ceil(px * 2) + 1;   // overscan so the edges don't blur into black
+    function paint(img) {
+      c.width = BW; c.height = BH;
+      x.filter = 'blur(' + px.toFixed(2) + 'px) brightness(.72) saturate(1.25)';
+      var w = BW + 2 * m, h = BH + 2 * m;
+      if (img) {
+        var ia = img.naturalWidth / img.naturalHeight, ba = w / h, sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+        if (ia > ba) { sw = sh * ba; sx = (img.naturalWidth - sw) / 2; } else { sh = sw / ba; sy = (img.naturalHeight - sh) / 2; }
+        x.drawImage(img, sx, sy, sw, sh, -m, -m, w, h);
+      } else placeholder(x, -m, -m, w, h);
+    }
+    if (!url) return paint(null);
+    var img = new Image();
+    img.onload = function () { paint(img); };
+    img.onerror = function () { paint(null); };
+    img.src = url;
+  }
+  // The dusk placeholder scene (ui.css .scene .sky/.r1/.r2), for the canvas.
+  function placeholder(x, l, t, w, h) {
+    var g = x.createLinearGradient(0, t, 0, t + h);
+    [[0, '#0d1b33'], [.38, '#2b3d63'], [.66, '#c47a5a'], [.74, '#f0b27a'], [.75, '#2a2230']].forEach(function (s) { g.addColorStop(s[0], s[1]); });
+    x.fillStyle = g; x.fillRect(l, t, w, h);
+    function ridge(color, height, pts) {
+      var top = t + h * (1 - height), rh = h * height;
+      x.fillStyle = color; x.beginPath();
+      pts.forEach(function (p, i) { x[i ? 'lineTo' : 'moveTo'](l + w * p[0] / 100, top + rh * p[1] / 100); });
+      x.lineTo(l + w, t + h); x.lineTo(l, t + h); x.closePath(); x.fill();
+    }
+    ridge('#1d1a2a', .42, [[0, 40], [12, 22], [24, 38], [37, 12], [50, 34], [63, 18], [76, 36], [88, 20], [100, 32]]);
+    ridge('#0f0d17', .30, [[0, 30], [18, 52], [33, 26], [48, 50], [62, 30], [80, 56], [100, 34]]);
+  }
 
   // Applies everything Settings controls; Settings calls this after each change.
   function applyPrefs() {
@@ -522,7 +577,10 @@ html, body { background: #000; }
     look.apply();
     stage.classList.toggle('bigtext', prefs.textSize === 'Large');
     tick(); renderWifi(); renderCal();
+    var hb = store.get('homeBlur', 28);
+    if (hb !== shownBlur) { shownBlur = hb; drawBlur(); }
   }
+  var shownBlur = null;
 
   // Called by MainActivity whenever Home comes back: from an app, the screensaver or the Home button.
   function resume() {
@@ -531,11 +589,17 @@ html, body { background: #000; }
     build(); render();
     greet();
     refreshWeather();
-    showPicture(true);   // the screensaver may have moved on: switch without a crossfade
-    // Blur in: start sharp like the screensaver, then animate into the blur.
-    stage.classList.remove('awake');
-    void stage.offsetWidth;
-    requestAnimationFrame(function () { requestAnimationFrame(function () { stage.classList.add('awake'); }); });
+    // Blur in: start sharp like the screensaver, then fade in the blurred copy once it's drawn.
+    // The screensaver may have moved on, so the picture switches without a crossfade.
+    pause();
+    var woke = false;
+    function wake() {
+      if (woke) return;
+      woke = true;
+      requestAnimationFrame(function () { requestAnimationFrame(function () { stage.classList.add('awake'); }); });
+    }
+    showPicture(true, wake);
+    setTimeout(wake, 600);
   }
 
   window.home = {

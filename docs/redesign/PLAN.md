@@ -3,6 +3,8 @@
 Planning only. Nothing here changes the TV yet. This is the brief for building the redesign on the Mac.
 
 - **Full spec (every value, string and rule):** [`SPEC.md`](SPEC.md)
+- **Build guide (step by step on the Mac):** [`BUILD.md`](BUILD.md)
+- **Decision log (what was asked, decided and why):** [`DECISIONS.md`](DECISIONS.md)
 - **Mockup:** [`mockup.html`](mockup.html). Open it in a browser and drive it with the arrow keys, Enter (OK), H (hold OK) and Esc (Back). It opens on the screensaver; any key wakes it to Home.
 - **Live mockup (private, Griffin's account):** https://claude.ai/artifact/7urSSqupgRV34PHv268HoT
 - **Screens:** [`screens/`](screens/)
@@ -188,6 +190,7 @@ All of this extends the existing app in `launcher/`: the WebView pages in `asset
 2. **App tiles:** the app's own TV banner (wide artwork), or its logo centered on the brand color like the mockup? Griffin wanted the real logos, and big. Banners carry their own artwork and sizing.
 3. **Gargantua and Apple aerials:** keep them as optional scenes after the background redo?
 4. **Default Glass setting:** Balanced is the default. Confirm on the real TV.
+5. **PR #1:** close it once its code is ported into the build ([BUILD phase 2.4](BUILD.md#24-bring-over-working-code-from-pr-1)). Until then it's the only copy of that code.
 
 ## Parked (roadmap)
 

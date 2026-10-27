@@ -72,7 +72,7 @@ When this file and the mockup disagree, the mockup's code is the source of truth
 | Crossy Road | `#5CC46E` | `#FFFFFF` | wordmark "Crossy Road" | `#7BD389` |
 | Fawesome | `#16233A` | `#2EC4B6` | wordmark "fawesome" | `#2EC4B6` |
 
-Logos in the mockup are Simple Icons (CC0) paths on a 24×24 viewBox. On the TV, use each installed app's own banner or icon (see [PLAN open question 2](PLAN.md#open-questions)).
+Logos in the mockup are Simple Icons (CC0) paths on a 24×24 viewBox. Simple Icons' HBO Max mark still reads "max" (the 2023–25 branding). On the TV, use each installed app's own banner or icon (see [PLAN open question 2](PLAN.md#open-questions)).
 
 ### Calendars
 

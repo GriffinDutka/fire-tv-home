@@ -66,7 +66,8 @@ body { font-family: var(--sans); color: var(--text); -webkit-font-smoothing: ant
 .fday small { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.75); }
 .fday b { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .fday b i { font-style: normal; font-size: 18px; font-weight: 400; color: rgba(255,255,255,.65); margin-left: 6px; }
-.fday span { font-size: 15px; color: rgba(255,255,255,.75); white-space: nowrap; text-align: right; }
+/* Long conditions ("heavy drizzle", "thunderstorms, hail") wrap to a second line instead of spilling out. */
+.fday span { font-size: 15px; line-height: 1.15; color: rgba(255,255,255,.75); text-align: right; }
 
 /* Settings switch */
 .switch { width: 54px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.25); position: relative; transition: background 200ms; flex: none; }

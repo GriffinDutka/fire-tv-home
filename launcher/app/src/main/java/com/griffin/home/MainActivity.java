@@ -1,6 +1,7 @@
 package com.griffin.home;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -9,6 +10,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -34,6 +36,7 @@ public class MainActivity extends Activity {
     private static final long SNAPSHOT_DELAY_MS = 1500;
     private static final long SNAPSHOT_EVERY_MS = 60 * 1000;
     private static final long HOLD_MS = 550;
+    private static final String SILK = "com.amazon.cloud9";
 
     private WebView web;
     private boolean resumed;
@@ -304,6 +307,23 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return null;
             }
+        }
+
+        /** A web page in Silk (the Claude tab, when the Claude app isn't installed). */
+        @JavascriptInterface
+        public boolean openUrl(String url) {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(new Intent(i).setPackage(SILK));
+            } catch (ActivityNotFoundException e) {
+                try {
+                    startActivity(i);
+                } catch (ActivityNotFoundException e2) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         @JavascriptInterface

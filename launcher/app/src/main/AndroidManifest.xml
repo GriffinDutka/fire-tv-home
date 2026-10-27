@@ -8,6 +8,8 @@
     <!-- Granted over ADB by install.sh; lets the Settings screen change animation speed
          and turn the home guard on/off. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Settings → Screensaver → Start after sets the screen timeout; granted with appops by install-launcher.sh. -->
+    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Chicago weather (Open-Meteo) on the home screen and screensaver. -->
     <uses-permission android:name="android.permission.INTERNET" />
 

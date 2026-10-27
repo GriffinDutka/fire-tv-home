@@ -58,8 +58,8 @@
     return pic.src;
   }
 
-  // Shows pic on a .scene with two .pic layers, crossfading from whatever was there.
-  function show(scene, pic, done) {
+  // Shows pic on a .scene with two .pic layers, crossfading from whatever was there (or not, if instant).
+  function show(scene, pic, done, instant) {
     var layers = scene.querySelectorAll('.pic'), url = src(pic);
     if (!url) { if (done) done(false); return; }
     var front = scene._front || 0, cur = layers[front];
@@ -70,6 +70,7 @@
       next.style.backgroundImage = 'url("' + url + '")';
       next.dataset.url = url;
       next.style.zIndex = 2; cur.style.zIndex = 1;
+      next.style.transition = instant ? 'none' : '';
       next.classList.add('on');
       scene._front = front ^ 1;
       // The old one stays under the new one until the crossfade is done.

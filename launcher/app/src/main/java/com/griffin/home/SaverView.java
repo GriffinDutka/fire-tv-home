@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.VideoView;
 
@@ -50,6 +51,7 @@ class SaverView extends FrameLayout implements Media.Player {
         web.addJavascriptInterface(new Store(context), "Store");
         web.addJavascriptInterface(new Media(context, "stills", ".jpg", null), "Stills");
         web.addJavascriptInterface(new Media(context, "aerials", ".mov", this), "Aerials");
+        web.setWebViewClient(new WebViewClient()); // keeps the Gargantua scene's iframe inside the page
         web.loadUrl("file:///android_asset/screensaver.html");
         addView(web, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
     }

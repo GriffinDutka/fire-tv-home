@@ -82,6 +82,8 @@ public class MainActivity extends Activity {
     protected void onPause() {
         resumed = false;
         web.removeCallbacks(snapshot);
+        // Back to the sharp picture while hidden, so returning starts there and blurs in.
+        js("window.tv && tv.pause && tv.pause()");
         super.onPause();
     }
 
@@ -374,6 +376,47 @@ public class MainActivity extends Activity {
             boolean ok = setGuard(on);
             if (ok && !on) web.post(MainActivity.this::openAmazonHome);
             return ok;
+        }
+
+        /**
+         * Minutes of idle before the screensaver comes on, 0 if it's off. Fire OS dreams when the
+         * screen would otherwise time out (screensaver_activate_on_sleep), so this is that timeout.
+         */
+        @JavascriptInterface
+        public int saverAfter() {
+            if (Settings.Secure.getInt(getContentResolver(), "screensaver_enabled", 1) == 0) return 0;
+            return Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 600000) / 60000;
+        }
+
+        /** 0 turns the screensaver off. Needs WRITE_SETTINGS, granted with appops by install-launcher.sh. */
+        @JavascriptInterface
+        public boolean setSaverAfter(int minutes) {
+            try {
+                Settings.Secure.putInt(getContentResolver(), "screensaver_enabled", minutes > 0 ? 1 : 0);
+                if (minutes > 0) Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, minutes * 60000);
+                return true;
+            } catch (SecurityException | IllegalArgumentException e) {
+                return false;
+            }
+        }
+
+        /** Fire OS network settings, or its main settings if that screen isn't there. */
+        @JavascriptInterface
+        public void networkSettings() {
+            try {
+                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ActivityNotFoundException e) {
+                tvSettings();
+            }
+        }
+
+        @JavascriptInterface
+        public String version() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (PackageManager.NameNotFoundException e) {
+                return "";
+            }
         }
     }
 }

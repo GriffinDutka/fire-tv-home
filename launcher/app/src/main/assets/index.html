@@ -19,6 +19,7 @@ html, body { background: #000; }
 .homeui { position: absolute; inset: 0; transition: opacity 450ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
 #stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); }
 #stage.insettings .homeui { opacity: 0; transition: none; }
+#stage.instant .wall, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
 
 /* ---- Top bar ---- */
 .top { position: absolute; left: 72px; right: 72px; top: 52px; display: flex; justify-content: space-between; align-items: flex-start; gap: 28px; }
@@ -475,7 +476,7 @@ html, body { background: #000; }
   function refreshWeather() { weather.get(function (w) { var first = !wx; wx = w; renderWeather(); if (first) greet(); }, prefs.units); }
 
   // ---- Picture ----
-  function showPicture() { pictures.show($('scene'), pictures.current(prefs), retryPoster); }
+  function showPicture(instant) { pictures.show($('scene'), pictures.current(prefs), retryPoster, instant === true); }
   // An aerial's still frame may still be in the works the first time; try again shortly.
   var posterTimer;
   function retryPoster(ok) { clearTimeout(posterTimer); if (!ok) posterTimer = setTimeout(showPicture, 4000); }
@@ -495,7 +496,7 @@ html, body { background: #000; }
     build(); render();
     greet();
     refreshWeather();
-    showPicture();
+    showPicture(true);   // the screensaver may have moved on: switch without a crossfade
     // Blur in: start sharp like the screensaver, then animate into the blur.
     stage.classList.remove('awake');
     void stage.offsetWidth;
@@ -507,7 +508,17 @@ html, body { background: #000; }
     resetFavorites: function () { store.set('favorites', DEFAULT_FAVS); build(); render(); },
     defaultFavorites: DEFAULT_FAVS, wifiLevel: wifiLevel, refreshWeather: refreshWeather, showPicture: showPicture
   };
-  window.tv = { key: key, resume: resume };
+  // Called by MainActivity as Home goes out of sight: drop straight to the sharp picture (no
+  // transition) so the next resume starts there instead of flashing the old blurred frame.
+  function pause() {
+    closeSheet(); endMove();
+    stage.classList.add('instant');
+    stage.classList.remove('awake');
+    void stage.offsetWidth;
+    stage.classList.remove('instant');
+  }
+
+  window.tv = { key: key, resume: resume, pause: pause };
   TABS[2].caption = claudeCaption();
 
   document.addEventListener('livedata', function () { renderWifi(); renderCal(); });

@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <!-- Chicago weather (Open-Meteo) on the home screen and screensaver. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Wi-Fi strength next to the clock. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:label="Griffin Home"

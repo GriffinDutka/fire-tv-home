@@ -58,6 +58,7 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccessFromFileURLs(true); // app banners and stills are file:// images outside the assets
         web.addJavascriptInterface(new Bridge(), "Android");
         web.addJavascriptInterface(new Store(this), "Store");
+        web.addJavascriptInterface(new Data(this, web), "Data");
         // Film stills for the home backdrop; aerial count for Settings.
         web.addJavascriptInterface(new Media(this, "stills", ".jpg", null), "Stills");
         web.addJavascriptInterface(new Media(this, "aerials", ".mov", null), "Aerials");

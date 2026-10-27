@@ -49,6 +49,7 @@ class SaverView extends FrameLayout implements Media.Player {
         ws.setAllowFileAccess(true);
         ws.setAllowFileAccessFromFileURLs(true); // stills are file:// images outside the assets
         web.addJavascriptInterface(new Store(context), "Store");
+        web.addJavascriptInterface(new Data(context, web), "Data");
         web.addJavascriptInterface(new Media(context, "stills", ".jpg", null), "Stills");
         web.addJavascriptInterface(new Media(context, "aerials", ".mov", this), "Aerials");
         web.setWebViewClient(new WebViewClient()); // keeps the Gargantua scene's iframe inside the page

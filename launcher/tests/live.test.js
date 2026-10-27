@@ -117,6 +117,16 @@ test('offline: a fresh page shows the cached data and keeps it through failed re
   assert.equal(live.wifi(), -1, 'no polling with wifi: false');
 });
 
+test('a new calendars.txt loads at once, even with a fresh cache from before it', async () => {
+  const fake = tv(true);
+  fake.store.set('live.calendar', JSON.stringify({ at: NOW - 60 * 1000, src: '', byKey: {}, cals: [] }));  // saved a minute ago, no calendars yet
+  const live = load();
+  live.start({ wifi: false });
+  await new Promise((r) => setTimeout(r, 50));
+  assert.ok(fake.fetched.includes('https://cal.test/personal.ics'), 'refreshed without waiting 15 minutes');
+  assert.ok(live.events().some((e) => e.title === 'Gym'));
+});
+
 test('nothing loaded yet: placeholder headline', () => {
   tv(false);
   const live = load();

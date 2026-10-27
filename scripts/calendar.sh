@@ -23,4 +23,4 @@ fi
 
 adb_tv shell mkdir -p "$DEST" </dev/null
 adb_tv push "$SRC" "$DEST/calendars.txt" </dev/null >/dev/null
-echo "Calendars on the TV: $(grep -cE '^[^#].*\|.*\|' "$SRC" || true). Home picks them up within 15 minutes, or on restart."
+echo "Calendars on the TV: $(grep -cE '^[^#].*\|.*\|' "$SRC" || true). Home picks them up within a minute."

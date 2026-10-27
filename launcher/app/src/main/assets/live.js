@@ -37,7 +37,7 @@
 
   var opts = {}, started = false, busy = {};
   var cals = [];                         // [{name, key, color}]
-  var cal = { at: 0, byKey: {} };        // byKey[key] = [event with start/end as ms]
+  var cal = { at: 0, byKey: {} };        // byKey[key] = [event with start/end as ms], src = the calendars.txt it came from
   var feed = { at: 0, topics: {} };      // topics[name] = [headline]
   var upcoming = [];                     // every cached event, as Dates, sorted
   var level = -1, ssid = '';
@@ -87,7 +87,7 @@
         if (cal.byKey[c.key]) byKey[c.key] = cal.byKey[c.key];  // offline: keep the last copy
       });
     })).then(function () {
-      cal = { at: now, byKey: byKey, cals: cals.map(function (c) { return { name: c.name, key: c.key, color: c.color }; }) };
+      cal = { at: now, src: text, byKey: byKey, cals: cals.map(function (c) { return { name: c.name, key: c.key, color: c.color }; }) };
       data.save(CAL_KEY, cal);
       rebuild();
       busy.cal = false;
@@ -172,7 +172,9 @@
   function tick() {
     loadCache().forEach(emit);
     var now = Date.now();
-    if (now - cal.at >= CAL_EVERY) refreshCalendar();
+    // A new or edited calendars.txt (scripts/calendar.sh) loads within a minute, not at the next 15-minute refresh.
+    var text = configText();
+    if (now - cal.at >= CAL_EVERY || (text != null && text !== cal.src)) refreshCalendar();
     if (now - feed.at >= NEWS_EVERY) refreshNews();
   }
 

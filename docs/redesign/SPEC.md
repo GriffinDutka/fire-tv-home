@@ -855,7 +855,7 @@ Lede: "Griffin Home on your TCL 55S450F."
 | Back | Esc | back |
 | ☰ Menu | (none) | menu (same as hold on app tiles) |
 
-**Hold detection (TV, from PR #1):**
+**Hold detection (TV, already in `main` from PR #1):**
 - OK fires on **release**, not press, so a long press can be hold.
 - While OK is down with key repeats, once 550ms have passed since the press, send hold once.
 - On release, send ok only if hold wasn't sent.

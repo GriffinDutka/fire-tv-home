@@ -156,9 +156,9 @@ All of this extends the existing app in `launcher/`: the WebView pages in `asset
 | Glass | CSS `backdrop-filter`. **Test first:** the TV's WebView must support it and stay smooth. Fallback: solid tinted panels, solid clock. |
 | Frosted clock | The time is drawn into canvas masks (fill and top-edge highlight) over a `backdrop-filter` layer. Same support check as above. |
 | Screensaver → Home blur | Today Home (`MainActivity`) and the screensaver (`Gargantua` DreamService) are separate windows. Either blur the current picture behind Home in the WebView (simple), or show the screensaver inside `MainActivity` so the transition is one continuous animation (closer to the iPhone). Decide after the WebView test. |
-| App icons | Each installed app's own banner or icon, read from Android's PackageManager and cached as PNGs. Draft PR #1 already has this (`MainActivity.icon()`), plus the full app list, Favorites storage, hold-OK detection and `ScreensaverActivity`. Reuse it. |
+| App icons | Each installed app's own banner or icon, read from Android's PackageManager and cached as PNGs. `main` already has this from PR #1 (`MainActivity.icon()`), plus the full app list, Favorites storage, hold-OK detection and `ScreensaverActivity`. Build on it. |
 | Fonts | Bundle Montserrat and Roboto as `.woff2` in `assets/fonts/` (both are open licenses). |
-| Weather | Existing Open-Meteo call in `weather.js`, extended to a 3-day forecast (also in PR #1). |
+| Weather | Existing Open-Meteo call in `weather.js`, already extended to a 3-day forecast (PR #1, in `main`). |
 | Calendar | Start with Google Calendar's **secret iCal address**, kept in a gitignored config file on the Mac and pushed by the install script. The TV fetches it every 15 minutes. Later option: Google sign-in on the TV with a code entered on the phone. Read-only. |
 | News | Free RSS feeds, one headline at a time. Candidates (confirm each feed): Tech: The Verge, Ars Technica · AI: The Verge AI, MIT Technology Review · Sci-fi shows: Gizmodo, Den of Geek · Gaming: Polygon, IGN · Chicago: Block Club Chicago, Sun-Times, WBEZ. |
 | Steam | Steam store data: wishlist sales (needs Griffin's public Steam profile), top sellers, new releases. |
@@ -169,7 +169,7 @@ All of this extends the existing app in `launcher/`: the WebView pages in `asset
 
 1. **WebView check on the TV:** WebView version, `backdrop-filter` support, and frame rate with 3–4 glass panels over a 4K picture.
 2. **Fonts and glass:** bundle the fonts and restyle the existing Home with the glass panels and Glass setting.
-3. **Home layout:** rows, real icons, options panel and Favorites (port from PR #1); greeting v2; forecast and calendar widgets; Wi-Fi.
+3. **Home layout:** rows, real icons, options panel and Favorites (build on PR #1's code in `main`); greeting v2; forecast and calendar widgets; Wi-Fi.
 4. **Screensaver v2:** picture, frosted clock, weather, calendar and headline cards; blur into Home.
 5. **Settings screen.**
 6. **Data:** Google Calendar (iCal address), news feeds, Steam.
@@ -190,7 +190,7 @@ All of this extends the existing app in `launcher/`: the WebView pages in `asset
 2. **App tiles:** the app's own TV banner (wide artwork), or its logo centered on the brand color like the mockup? Griffin wanted the real logos, and big. Banners carry their own artwork and sizing.
 3. **Gargantua and Apple aerials:** keep them as optional scenes after the background redo?
 4. **Default Glass setting:** Balanced is the default. Confirm on the real TV.
-5. **PR #1:** close it once its code is ported into the build ([BUILD phase 2.4](BUILD.md#24-bring-over-working-code-from-pr-1)). Until then it's the only copy of that code.
+~~5. **PR #1:**~~ Resolved: Griffin merged PR #1 into `main` on 2026-10-27, so its code is the starting point ([BUILD 2.4](BUILD.md#24-working-code-already-in-main-from-pr-1)).
 
 ## Parked (roadmap)
 

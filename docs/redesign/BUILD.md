@@ -22,15 +22,15 @@ Items marked **⚠ verify** couldn't be confirmed from the planning environment.
    ```sh
    git fetch origin
    git checkout -b redesign origin/main   # or base on claude/griffin-home-redesign-plan until PR #2 merges
-   git fetch origin claude/home-favorites-screensaver   # PR #1: code to reuse
    ```
+   `main` already includes PR #1 (merged 2026-10-27): Favorites, the app library with real banners, hold-OK, the screensaver on demand and its toggles. The redesign builds on top of it.
 3. Back up the TV and check that the current app still builds:
    ```sh
    ./scripts/backup.sh
    ./scripts/install-launcher.sh
    ```
 
-**Undo at any point:** `./scripts/restore.sh` returns the TV to stock. Reinstalling `main` gets the old Griffin Home back.
+**Undo at any point:** `./scripts/restore.sh` returns the TV to stock. Reinstalling `main` gets today's Griffin Home (with PR #1) back.
 
 ---
 
@@ -117,7 +117,7 @@ Move what Home and the screensaver share into `launcher/app/src/main/assets/`. T
 | `prefs.js` | Read/write settings through the `Prefs` bridge (2.3), with defaults from [SPEC §20](SPEC.md#20-saved-state) |
 | `greeting.js` | `hellos()`, `subs()`, `holiday()`, `pick()` from the mockup ([SPEC §11](SPEC.md#11-greeting)) |
 | `calendar.js` | `events()` filter/sort, `dayLabel()`, `renderCal()` ([SPEC §12](SPEC.md#12-calendar)) |
-| `weather.js` | Existing file, with PR #1's 3-day `days` array (2.4) |
+| `weather.js` | Existing file; already has the 3-day `days` array (2.4) |
 
 Both `index.html` and `screensaver.html` include these.
 
@@ -141,7 +141,7 @@ Register it in both places:
 web.addJavascriptInterface(new Store(this), "Store");
 ```
 
-This goes in `MainActivity` and in `SaverView` (from PR #1). In `prefs.js`, use `Store` when it exists and `localStorage` otherwise (browser testing).
+This goes in `MainActivity` and in `SaverView` (both already in `main`). In `prefs.js`, use `Store` when it exists and `localStorage` otherwise (browser testing).
 
 **Keys:**
 
@@ -153,33 +153,24 @@ This goes in `MainActivity` and in `SaverView` (from PR #1). In `prefs.js`, use 
 | `prefs` | The [SPEC §20](SPEC.md#20-saved-state) object |
 | `favorites` | Array of package names |
 | `hidden` | Array of package names |
+| (migration) | On first run, copy `home.favorites` and `home.hidden` from the WebView's localStorage (where today's Home keeps them) into `favorites` and `hidden`, so Griffin's current Favorites order survives. |
 | `currentPicture` | The picture shown now |
 
-### 2.4 Bring over working code from PR #1
+### 2.4 Working code already in `main` (from PR #1)
 
-```sh
-B=origin/claude/home-favorites-screensaver
-git checkout $B -- \
-  launcher/app/src/main/java/com/griffin/home/Media.java \
-  launcher/app/src/main/java/com/griffin/home/SaverView.java \
-  launcher/app/src/main/java/com/griffin/home/ScreensaverActivity.java \
-  launcher/app/src/main/java/com/griffin/home/Gargantua.java \
-  launcher/app/src/main/java/com/griffin/home/MainActivity.java \
-  launcher/app/src/main/AndroidManifest.xml \
-  launcher/app/src/main/assets/weather.js
-```
+Nothing to copy: PR #1 was merged, so these are already on the branch.
 
-What this brings:
-
-| From PR #1 | What it does |
+| File | What it does |
 |---|---|
 | `MainActivity` | OK fires on release; hold ≥ 550ms sends `hold`; `Android.apps()` (every launchable app, A–Z); `Android.icon(pkg)` (banner or icon cached as PNG, `{src, banner}`); `Android.startScreensaver()`; `Stills`/`Aerials` bridges; existing `launch`, `tvSettings`, `amazonHome`, `getAnim`/`setAnim`, `guardOn`/`setGuardOn` |
 | `SaverView` | Screensaver view (WebView + VideoView for aerials) shared by the DreamService and `ScreensaverActivity` |
 | `ScreensaverActivity` | Start the screensaver on demand; any key returns Home |
 | `Media` | Lists files pushed by `scripts/stills.sh` |
-| `weather.js` | Adds `days: [{dow, hi, lo, code, text}]` (next 3 days) and caches under `weather.chicago.v2` |
+| `weather.js` | Has `days: [{dow, hi, lo, code, text}]` (next 3 days) and caches under `weather.chicago.v2` |
+| `index.html` | Today's Home (Favorites, All apps, System, options, move, Settings list). Reuse its app loading (`loadApps`, `artFor`/`loadArt`, the Favorites and hidden logic) when rebuilding in phase 3. |
+| `screensaver.html` | Today's screensaver cycle with Gargantua/aerials/stills toggles (`saver.modes`). Becomes the Gargantua scene in phase 5. |
 
-Don't take PR #1's `index.html` or `screensaver.html`. Those get rebuilt in phases 3 and 5.
+`index.html` and `screensaver.html` get rebuilt in phases 3 and 5.
 
 **Done when:** the app builds (`./launcher/build.sh`), installs, and looks the same as before, with the fonts loaded.
 

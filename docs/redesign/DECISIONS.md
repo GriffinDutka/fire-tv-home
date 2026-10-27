@@ -19,7 +19,9 @@ Sessions: the redesign was planned in one Claude Code session on 2026-10-26 and 
 
 **Decision:** Griffin said "we are just planning." All later work is planning: mockups plus a handoff doc for building on the Mac. PR #1 stays open as a source of working code to reuse, not as the plan.
 
-**Why it matters:** PR #1 already solves several hard parts on the TV (installed apps and their icons, hold detection, starting the screensaver on demand). [`BUILD.md`](BUILD.md) ports them instead of rewriting them.
+**Later:** Griffin merged PR #1 into `main` on 2026-10-27. The redesign now builds on top of it rather than porting from a branch.
+
+**Why it matters:** PR #1 already solves several hard parts on the TV (installed apps and their icons, hold detection, starting the screensaver on demand). [`BUILD.md`](BUILD.md) builds on them instead of rewriting them.
 
 ## 1. Claude on the TV with voice
 

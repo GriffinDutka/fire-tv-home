@@ -1,0 +1,6 @@
+# Name|#color|secret iCal address
+Personal|#0A84FF|https://calendar.google.com/calendar/ical/example/private-xxx/basic.ics
+
+Sports | #64D2FF | webcal://example.com/sports.ics?a=1|b
+broken line without pipes
+NoUrl|#FFFFFF|

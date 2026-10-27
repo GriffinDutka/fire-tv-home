@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
+<channel>
+  <title>Example Tech &amp; Stuff</title>
+  <link>https://example.com/</link>
+  <item>
+    <title>Microsoft offers to buy out a quarter of its workforce</title>
+    <link>https://example.com/a1</link>
+    <pubDate>Mon, 26 Oct 2026 22:36:06 +0000</pubDate>
+    <media:title>Not the headline</media:title>
+  </item>
+  <item>
+    <title><![CDATA[&#8216;Star Trek&#8217; icon has died]]></title>
+    <link>https://example.com/a2</link>
+    <pubDate>Mon, 26 Oct 2026 21:00:00 +0000</pubDate>
+  </item>
+  <item>
+    <title>A forgettable start for the Bulls&#x27; Matas Buzelis</title>
+    <link>https://example.com/a3</link>
+    <pubDate>Mon, 26 Oct 2026 23:10:00 GMT</pubDate>
+  </item>
+  <item>
+    <title>Double-encoded: Tom&amp;#8217;s &amp;amp; Jerry&amp;rsquo;s</title>
+    <link>https://example.com/a4</link>
+    <dc:date>2026-10-26T12:00:00Z</dc:date>
+  </item>
+  <item>
+    <title><![CDATA[Ads <em>are</em> coming to your TV &mdash; again]]></title>
+    <link>https://example.com/a5</link>
+    <pubDate>Sun, 25 Oct 2026 09:00:00 -0500</pubDate>
+  </item>
+  <item>
+    <title>Oldest story</title>
+    <link>https://example.com/a6</link>
+    <pubDate>Sat, 24 Oct 2026 09:00:00 -0500</pubDate>
+  </item>
+  <item>
+    <title>Microsoft offers to buy out a quarter of its workforce</title>
+    <link>https://example.com/a1-dupe</link>
+    <pubDate>Mon, 26 Oct 2026 20:00:00 +0000</pubDate>
+  </item>
+  <item>
+    <title>   </title>
+    <link>https://example.com/empty</link>
+  </item>
+</channel>
+</rss>

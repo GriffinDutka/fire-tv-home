@@ -1,0 +1,10 @@
+# Copy to config/calendars.txt (not tracked), fill in, then run ./scripts/calendar.sh
+# One calendar per line: Name|#color|address
+#   Name     shows in Settings → Calendar; its lower-case form is the on/off key
+#   #color   the bar next to each event (iCal has no colors)
+#   address  Google Calendar → Settings → (calendar) → "Secret address in iCal format".
+#            iCloud: share publicly and use the webcal:// link (https:// works too).
+# The addresses are secret: anyone with one can read that calendar. Reset it in Google if it leaks.
+Personal|#0A84FF|https://calendar.google.com/calendar/ical/YOUR_ID/private-YOUR_SECRET/basic.ics
+Sports|#64D2FF|https://calendar.google.com/calendar/ical/YOUR_ID/private-YOUR_SECRET/basic.ics
+Holidays|#BF5AF2|https://calendar.google.com/calendar/ical/en.usa%23holiday%40group.v.calendar.google.com/public/basic.ics

@@ -36,6 +36,14 @@
             </intent-filter>
         </activity>
 
+        <!-- The screensaver on demand (home screen → Screensaver). -->
+        <activity
+            android:name=".ScreensaverActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:screenOrientation="landscape"
+            android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout|uiMode" />
+
         <!-- Fire OS ignores third-party HOME apps, so this watches for Amazon's home
              screen and swaps in ours. Disable it to get Amazon's home back. -->
         <service

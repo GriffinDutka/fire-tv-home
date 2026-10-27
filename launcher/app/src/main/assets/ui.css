@@ -1,0 +1,93 @@
+/* Shared by Home (index.html) and the screensaver: fonts, colors, glass, the calendar widget,
+   forecast rows, the Settings switch and reduced motion. Sizes are 1600x900 canvas px (docs/redesign/SPEC.md). */
+@font-face { font-family: 'Montserrat'; src: url(fonts/Montserrat.woff2) format('woff2'); font-weight: 100 900; }
+@font-face { font-family: 'Roboto'; src: url(fonts/Roboto.woff2) format('woff2'); font-weight: 100 900; }
+
+:root {
+  /* Type: the headline font sets all three together (Settings → Appearance). */
+  --display: 'Montserrat', sans-serif;
+  --dw: 700;
+  --dls: -.01em;
+  --sans: 'Roboto', sans-serif;
+
+  --text: #FFFFFF;
+  --focus: rgba(255,255,255,.92);
+  --focus-ink: #111111;
+  --red: #FF453A;
+  --on: #30D158;
+
+  /* Glass, set by glass.js from the one Glass value (Balanced = 35). */
+  --blur: 27px;
+  --tint: .167;
+  --rim: .304;
+  --shine: .218;
+  --lift: .193;
+  --homeBlur: 28px;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { font-family: var(--sans); color: var(--text); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+
+/* Designed at 1600x900, scaled to the screen. */
+#stage { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0; overflow: hidden; }
+
+.glass {
+  position: relative;
+  background: rgba(255,255,255,var(--tint));
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(1.6);
+  backdrop-filter: blur(var(--blur)) saturate(1.6);
+  border: 1px solid rgba(255,255,255,var(--rim));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,calc(var(--shine) * 2)), inset 0 -1px 0 rgba(255,255,255,calc(var(--shine) * .4)), 0 18px 40px rgba(0,0,0,.28);
+}
+/* Specular sheen across the top of every glass piece */
+.glass::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(170deg, rgba(255,255,255,var(--shine)) 0%, rgba(255,255,255,0) 38%); }
+/* Dark glass keeps text readable over bright pictures; --extra is per element (SPEC §3). */
+.glass.dark { background: rgba(16,16,20,calc(var(--tint) + var(--extra, .3))); }
+.txt { text-shadow: 0 1px 12px rgba(0,0,0,var(--lift)); }
+
+/* Calendar widget, after Apple's Up Next: red weekday, big date, events with calendar-color bars. */
+.cal { --extra: .34; width: 380px; box-sizing: border-box; padding: 18px 22px 16px; border-radius: 28px; color: #fff; display: flex; flex-direction: column; gap: 9px; font-family: var(--sans); }
+.cal .head { display: flex; align-items: baseline; gap: 12px; }
+.cal .dow { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.cal .num { font-size: 40px; font-weight: 500; line-height: .9; font-variant-numeric: tabular-nums; }
+.cal .group { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-top: 2px; }
+.cal .ev { display: grid; grid-template-columns: 5px 1fr; gap: 12px; align-items: stretch; }
+.cal .ev i { border-radius: 3px; }
+.cal .ev div { min-width: 0; }
+.cal .ev b { display: block; font-size: 18px; font-weight: 500; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal .ev span { display: block; font-size: 15px; color: rgba(255,255,255,.7); font-variant-numeric: tabular-nums; }
+.cal .none { font-size: 16px; color: rgba(255,255,255,.7); }
+.bigtext .cal .ev b { font-size: 20px; }
+
+/* 3-day forecast: slim stacked rows, day · high/low · conditions. */
+.fday { width: 270px; flex: 1; box-sizing: border-box; padding: 0 20px; border-radius: 20px; display: grid; grid-template-columns: 52px 112px 1fr; align-items: center; color: #fff; font-family: var(--sans); }
+.fday small { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.fday b { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.fday b i { font-style: normal; font-size: 18px; font-weight: 400; color: rgba(255,255,255,.65); margin-left: 6px; }
+.fday span { font-size: 15px; color: rgba(255,255,255,.75); white-space: nowrap; text-align: right; }
+
+/* Settings switch */
+.switch { width: 54px; height: 32px; border-radius: 999px; background: rgba(255,255,255,.25); position: relative; transition: background 200ms; flex: none; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform 200ms; }
+.switch.on { background: var(--on); }
+.switch.on::after { transform: translateX(22px); }
+
+/* Picture layer: one picture under everything, 6% oversized so it can drift. */
+.wall { position: absolute; inset: 0; overflow: hidden; }
+.scene { position: absolute; inset: -6%; }
+.scene .pic { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 3s ease; }
+.scene .pic.on { opacity: 1; }
+/* Placeholder dusk scene until real pictures exist. */
+.scene .sky { position: absolute; inset: 0; background: linear-gradient(to bottom, #0d1b33 0%, #2b3d63 38%, #c47a5a 66%, #f0b27a 74%, #2a2230 75%); }
+.scene .ridge { position: absolute; left: 0; right: 0; bottom: 0; }
+.scene .r1 { height: 42%; background: #1d1a2a; clip-path: polygon(0 40%, 12% 22%, 24% 38%, 37% 12%, 50% 34%, 63% 18%, 76% 36%, 88% 20%, 100% 32%, 100% 100%, 0 100%); }
+.scene .r2 { height: 30%; background: #0f0d17; clip-path: polygon(0 30%, 18% 52%, 33% 26%, 48% 50%, 62% 30%, 80% 56%, 100% 34%, 100% 100%, 0 100%); }
+.drift { animation: drift 40s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: scale(1.02) translate(-1%, 0); } to { transform: scale(1.08) translate(1.5%, -1%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .drift, .tile.focus::after { animation: none !important; }
+  .wall, .scene, .homeui, .saver, .tile, .scene .pic { transition: none !important; }
+}

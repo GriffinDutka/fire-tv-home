@@ -100,6 +100,40 @@ html, body { background: #000; }
 .opt { padding: 15px 24px; border-radius: 999px; font-size: 22px; font-weight: 500; background: rgba(255,255,255,.08); transition: background 150ms, color 150ms, transform 200ms; }
 .opt.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.03); }
 .panel .hint { margin-top: 14px; font-size: 16px; color: rgba(255,255,255,.65); }
+
+/* ---- Settings screen (settings.js): categories left, rows right ---- */
+.setscreen { position: absolute; inset: 0; display: none; }
+#stage.awake.insettings .setscreen { display: block; animation: setIn 320ms cubic-bezier(.2,.8,.2,1); }
+@keyframes setIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+.set-title { position: absolute; left: 72px; top: 54px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 60px; line-height: 1; }
+.set-cats { position: absolute; left: 72px; top: 150px; bottom: 56px; width: 392px; box-sizing: border-box; padding: 14px; border-radius: 36px; display: flex; flex-direction: column; gap: 4px; }
+.set-cat { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 999px; font: 500 21px var(--sans); transition: background 150ms, color 150ms; }
+.set-cat i { width: 30px; height: 30px; border-radius: 9px; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.set-cat.sel { background: rgba(255,255,255,.14); }
+.set-cat.focus { background: var(--focus); color: var(--focus-ink); }
+.set-detail { position: absolute; left: 492px; right: 72px; top: 54px; bottom: 56px; box-sizing: border-box; padding: 34px 40px; border-radius: 40px; overflow: hidden; }
+.set-detail h3 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 42px; line-height: 1.1; }
+.set-detail .lede { margin: 6px 0 18px; font: 17px/1.4 var(--sans); color: rgba(255,255,255,.7); }
+.set-view { position: absolute; left: 40px; right: 40px; top: 128px; bottom: 30px; overflow: hidden; }
+.set-rows { display: flex; flex-direction: column; gap: 8px; transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
+.set-tip { padding: 14px 20px; border-radius: 20px; background: rgba(255,255,255,.1); font: 18px/1.4 var(--sans); color: rgba(255,255,255,.88); margin-bottom: 4px; }
+.set-tip b { display: block; font-size: 13px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 3px; }
+.set-sec { font: 700 13px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); margin: 10px 0 0 6px; }
+.srow2 { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 62px; box-sizing: border-box; padding: 10px 22px; border-radius: 22px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.srow2 .l { font: 500 21px var(--sans); display: flex; align-items: center; gap: 10px; }
+.srow2 .l i { width: 12px; height: 12px; border-radius: 50%; }
+.srow2 .s { font: 15px var(--sans); color: rgba(255,255,255,.62); margin-top: 3px; }
+.srow2 .v { font: 500 19px var(--sans); color: rgba(255,255,255,.85); white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+.srow2 .chev { opacity: 0; font-size: 16px; }
+.srow2.focus { background: var(--focus); color: var(--focus-ink); transform: scale(1.01); }
+.srow2.focus .s { color: rgba(0,0,0,.55); }
+.srow2.focus .v { color: var(--focus-ink); }
+.srow2.focus .chev { opacity: .55; }
+.srow2.focus .switch:not(.on) { background: rgba(0,0,0,.2); }
+.bigtext .srow2 .l { font-size: 24px; }
+.bigtext .srow2 .s { font-size: 17px; }
+.set-toast { position: absolute; left: 40px; right: 40px; bottom: 26px; padding: 14px 20px; border-radius: 18px; background: rgba(0,0,0,.45); font: 17px var(--sans); opacity: 0; transform: translateY(8px); transition: opacity 250ms, transform 250ms; pointer-events: none; }
+.set-toast.on { opacity: 1; transform: none; }
 </style>
 </head>
 <body>
@@ -145,6 +179,7 @@ html, body { background: #000; }
 <script src="calendar.js"></script>
 <script src="greeting.js"></script>
 <script src="pictures.js"></script>
+<script src="news.js"></script>
 <script>
 (function () {
   var A = window.Android || null;
@@ -310,11 +345,11 @@ html, body { background: #000; }
 
   // The name is 120px; names too long for the space beside the widgets step down (to 72px at most).
   function fitTitle(name) {
-    var h = $('heroTitle');
-    if (h.textContent === name && h.dataset.fit === String(document.fonts ? document.fonts.status : '')) return;
+    var h = $('heroTitle'), fit = name + '|' + getComputedStyle(h).fontFamily + '|' + (document.fonts ? document.fonts.status : '');
+    if (h.dataset.fit === fit) return;
     h.textContent = name;
     h.style.fontSize = '';
-    h.dataset.fit = document.fonts ? document.fonts.status : '';
+    h.dataset.fit = fit;
     if (h.scrollWidth > h.clientWidth) h.style.fontSize = Math.max(72, Math.floor(120 * h.clientWidth / h.scrollWidth)) + 'px';
   }
 
@@ -539,5 +574,6 @@ html, body { background: #000; }
   setInterval(renderCal, 60 * 1000);
 })();
 </script>
+<script src="settings.js"></script>
 </body>
 </html>

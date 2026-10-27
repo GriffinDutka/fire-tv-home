@@ -22,6 +22,6 @@ class Store {
 
     @JavascriptInterface
     public void set(String key, String json) {
-        sp.edit().putString("ui." + key, json).apply();
+        sp.edit().putString("ui." + key, json).commit(); // JS bridge thread, so writing through is fine
     }
 }

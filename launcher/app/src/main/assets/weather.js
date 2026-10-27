@@ -1,10 +1,11 @@
 // Chicago weather from Open-Meteo (free, no key). Shared by the home screen and the screensaver.
-// weather.get(cb) calls cb(data) right away with anything cached, then again when fresh data lands.
+// weather.get(cb, units) calls cb(data) right away with anything cached, then again when fresh data lands.
+// units is '°F' (default) or '°C' (Settings → Weather → Units); each is fetched and cached on its own.
 (function () {
   var URL = 'https://api.open-meteo.com/v1/forecast?latitude=41.88&longitude=-87.63' +
     '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day' +
     '&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset' +
-    '&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=4';
+    '&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=4';
   var KEY = 'weather.chicago.v2';
   var FRESH_MS = 15 * 60 * 1000;
 
@@ -50,22 +51,24 @@
     };
   }
 
-  function cached() {
-    try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+  function cached(key) {
+    try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
   }
 
-  function get(cb) {
-    var c = cached();
+  function get(cb, units) {
+    var c2 = units === '°C', key = KEY + (c2 ? '.c' : '');
+    var c = cached(key);
     if (c) cb(c);
     if (c && Date.now() - c.at < FRESH_MS) return;
     var x = new XMLHttpRequest();
-    x.open('GET', URL);
+    x.open('GET', URL + '&temperature_unit=' + (c2 ? 'celsius' : 'fahrenheit'));
     x.timeout = 10000;
     x.onload = function () {
       if (x.status !== 200) return;
       try {
         var w = parse(JSON.parse(x.responseText));
-        try { localStorage.setItem(KEY, JSON.stringify(w)); } catch (e) {}
+        w.units = c2 ? '°C' : '°F';
+        try { localStorage.setItem(key, JSON.stringify(w)); } catch (e) {}
         cb(w);
       } catch (e) {}
     };

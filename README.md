@@ -37,6 +37,7 @@ Tiers: `tracking`, `ads`, `extras`, and the opt-in `updates`, `screensaver`.
 - [x] Faster animations
 - [x] Debloat (tracking / ads / extras) — 17 disabled; 3 protected by Fire OS
 - [x] Custom launcher (Griffin Home) — `./scripts/install-launcher.sh`
+- [ ] Redesign: glass look, screensaver v2, Settings screen. Plan and mockup in [`docs/redesign/`](docs/redesign/PLAN.md)
 
 ## Griffin Home (launcher/)
 

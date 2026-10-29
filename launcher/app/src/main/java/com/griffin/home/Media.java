@@ -33,8 +33,17 @@ class Media {
 
     private static final long POSTER_AT_US = 20 * 1000 * 1000;
     private static final Set<String> MAKING = new HashSet<>();
-    private static final int THUMB_W = 480;
+    private static final int THUMB_W = 480, SCREEN_W = 2400;
     private static final ExecutorService THUMBS = Executors.newSingleThreadExecutor();
+    // Its own queue, at the lowest priority, so making screen copies never holds up thumbnails or the UI.
+    private static final ExecutorService SCREENS = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_LOWEST);
+            r.run();
+        });
+        return t;
+    });
+    private static boolean warmed;
 
     private final Context context;
     private final String folder, ext;
@@ -130,14 +139,52 @@ class Media {
      */
     @JavascriptInterface
     public String thumb(final String name) {
+        return scaled(name, "thumbs/" + folder, THUMB_W, 82, THUMBS);
+    }
+
+    /**
+     * Stills only: a copy no bigger than the screen needs (2400 wide covers Home's and the screensaver's
+     * zoom at 1080p). Decoding and uploading a 4K still held up frames for ~250ms on the TV. Like thumb():
+     * its file:// URL, or null while it's being made; the still itself if it's already that small.
+     * The first ask also makes copies of every other still, slowly in the background, so the next
+     * picture is ready before it's needed.
+     */
+    @JavascriptInterface
+    public String screen(final String name) {
+        if (".mov".equals(ext) || name.contains("/")) return null;
+        File f = new File(dir(), name);
+        if (!f.exists()) return null;
+        if (!warmed) {
+            warmed = true;
+            final File dir = dir();
+            SCREENS.execute(() -> {
+                File[] all = dir.listFiles((d, n) -> n.toLowerCase().endsWith(ext));
+                if (all != null) for (File o : all) screenCopy(o);
+            });
+        }
+        return screenCopy(f);
+    }
+
+    private String screenCopy(File f) {
+        File out = new File(context.getCacheDir(), "screen/" + f.getName() + "-" + f.length() + ".jpg");
+        if (out.exists()) return "file://" + out.getAbsolutePath();
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(f.getPath(), o);
+        if (o.outWidth > 0 && o.outWidth <= SCREEN_W) return "file://" + f.getAbsolutePath();
+        return scaled(f.getName(), "screen", SCREEN_W, 90, SCREENS);
+    }
+
+    /** A JPEG of the file `width` wide in <cache>/<sub>, made in the background; null until it exists. */
+    private String scaled(final String name, String sub, final int width, final int quality, ExecutorService queue) {
         final File f = new File(dir(), name);
         if (!f.exists() || name.contains("/")) return null;
-        final File out = new File(context.getCacheDir(), "thumbs/" + folder + "/" + name + "-" + f.length() + ".jpg");
+        final File out = new File(context.getCacheDir(), sub + "/" + name + "-" + f.length() + ".jpg");
         if (out.exists()) return "file://" + out.getAbsolutePath();
         synchronized (MAKING) {
             if (!MAKING.add(out.getPath())) return null;
         }
-        THUMBS.execute(() -> {
+        queue.execute(() -> {
             Bitmap b = null, s = null;
             MediaMetadataRetriever r = null;
             try {
@@ -152,14 +199,14 @@ class Media {
                     BitmapFactory.decodeFile(f.getPath(), o);
                     o.inJustDecodeBounds = false;
                     o.inSampleSize = 1;
-                    while (o.outWidth / (o.inSampleSize * 2) >= THUMB_W) o.inSampleSize *= 2;
+                    while (o.outWidth / (o.inSampleSize * 2) >= width) o.inSampleSize *= 2;
                     b = BitmapFactory.decodeFile(f.getPath(), o);
                 }
                 if (b == null) return;
-                s = Bitmap.createScaledBitmap(b, THUMB_W, THUMB_W * b.getHeight() / b.getWidth(), true);
+                s = Bitmap.createScaledBitmap(b, width, width * b.getHeight() / b.getWidth(), true);
                 File tmp = new File(out.getPath() + ".tmp");
                 try (FileOutputStream o = new FileOutputStream(tmp)) {
-                    s.compress(Bitmap.CompressFormat.JPEG, 82, o);
+                    s.compress(Bitmap.CompressFormat.JPEG, quality, o);
                 }
                 tmp.renameTo(out);
             } catch (Exception | OutOfMemoryError ignored) {

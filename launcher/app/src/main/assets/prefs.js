@@ -20,7 +20,7 @@
   // Home guard and animation speed aren't here: they're Android settings, read through the bridge.
   var DEFAULTS = {
     clock24: false, wifi: true, greetCal: true, greetCountdown: true, textSize: 'Default',
-    picSource: 'Your pictures', picEvery: '15 minutes', picShuffle: true, picPick: null,
+    picTopics: {}, picEvery: '15 minutes', picShuffle: true, picPick: null,
     saverAfter: '10 minutes', clockStyle: 'Glass', svWeather: true, svCal: true, svNews: true, gargantua: false,
     news: { 'Tech': true, 'AI': true, 'Sci-fi shows': true, 'Gaming': true, 'Steam': true, 'Chicago': true },
     newsEvery: '8 seconds',

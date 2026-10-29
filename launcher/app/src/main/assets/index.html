@@ -18,12 +18,22 @@ html, body { background: #000; }
 /* Settings dims the picture a little further (brightness .72 → .58). */
 .dim { position: absolute; inset: 0; background: #000; opacity: 0; transition: opacity 320ms ease; }
 #stage.awake.insettings .dim { opacity: .2; }
-.shade { position: absolute; inset: 0; transition: background 400ms ease, opacity 400ms ease;
-  background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 55%), linear-gradient(to right, rgba(0,0,0,.35), rgba(0,0,0,0) 50%); }
-#stage.down .shade { background: rgba(0,0,0,.45); }
+/* The shade is a small canvas stretched over the screen (drawShade): fading a full-screen CSS background
+   repainted all of 1080p every frame on the TV. */
+.shade { position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transition: opacity 400ms ease; }
 #stage:not(.awake) .shade { opacity: 0; }
-.homeui { position: absolute; inset: 0; transition: opacity 450ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
-#stage:not(.awake) .homeui { opacity: 0; transform: scale(1.03); }
+/* Glass on Home without backdrop-filter: on the TV any backdrop-filter, even saturate alone, cost ~40ms a frame
+   (15fps moving focus), and the picture behind Home is already blurred. Each glass piece instead shows a saturated
+   copy of the picture and shade (drawBackdrop), lined up with where it sits on screen (lineUp). App tiles keep their art. */
+#stage .glass:not(.app) { -webkit-backdrop-filter: none; backdrop-filter: none; --glassTint: rgba(255,255,255,var(--tint)); --glassDim: transparent;
+  background: linear-gradient(var(--glassTint), var(--glassTint)), linear-gradient(var(--glassDim), var(--glassDim)), var(--backdrop, none) var(--bx, 0) var(--by, 0) / 1600px 900px no-repeat border-box; }
+#stage .glass.dark { --glassTint: rgba(16,16,20,calc(var(--tint) + var(--extra, .3))); }
+#stage .setscreen .glass { --glassDim: rgba(0,0,0,.2); }
+/* Home fades in without moving: any transform on it (a 1.03 scale, even a 14px rise) put 70–100ms frames in the wake. */
+.homeui { position: absolute; inset: 0; transition: opacity 450ms ease; }
+/* Kept on their own layers: dropping them back in when the fade ended cost a ~100ms frame on the TV. */
+.homeui, .blurred { will-change: opacity; }
+#stage:not(.awake) .homeui { opacity: 0; }
 #stage.insettings .homeui { opacity: 0; transition: none; }
 #stage.instant .wall, #stage.instant .blurred, #stage.instant .homeui, #stage.instant .shade { transition: none !important; }
 /* The Home button jumps straight back to the first Favorite, without sliding the rows there. */
@@ -77,8 +87,11 @@ html, body { background: #000; }
 .shelf { padding: 0 0 0 72px; height: 312px; transition: opacity 300ms ease; }
 .shelf .label { font-size: 21px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.75); margin-bottom: 28px; }
 .row { display: flex; gap: 36px; transition: transform 300ms cubic-bezier(.2,.8,.2,1); }
+/* Only the focused tile casts a drop shadow, and it isn't animated: soft shadows under every tile, and fading one,
+   meant re-rasterizing them as focus moved (up to 100ms frames on the TV). */
 .tile { flex: none; position: relative; width: 328px; height: 186px; border-radius: 32px; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px 22px; box-sizing: border-box; color: #fff; font-size: 20px; font-weight: 500;
-  transition: transform 260ms cubic-bezier(.2,.8,.2,1), box-shadow 260ms ease; }
+  box-shadow: inset 0 1px 0 rgba(255,255,255,calc(var(--shine) * 2)), inset 0 -1px 0 rgba(255,255,255,calc(var(--shine) * .4));
+  transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
 /* App tiles: the app's own art with the glass rim and sheen on top, no backdrop blur. */
 .tile.app { padding: 0; align-items: center; justify-content: center; -webkit-backdrop-filter: none; backdrop-filter: none; border-color: rgba(255,255,255,calc(var(--rim) * .9)); background-position: center; background-size: cover; background-repeat: no-repeat; }
 .tile.app .logo { width: 132px; height: 132px; display: block; object-fit: contain; }
@@ -112,22 +125,24 @@ html, body { background: #000; }
 /* ---- Settings screen (settings.js): categories left, rows right ---- */
 .setscreen { position: absolute; inset: 0; display: none; }
 #stage.awake.insettings .setscreen { display: block; animation: setIn 320ms cubic-bezier(.2,.8,.2,1); }
-@keyframes setIn { from { opacity: 0; transform: scale(1.02); } to { opacity: 1; transform: none; } }
+@keyframes setIn { from { opacity: 0; } to { opacity: 1; } }   /* no scale: re-rastering Settings at each step made opening stutter */
 .set-title { position: absolute; left: 72px; top: 54px; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 60px; line-height: 1; }
 .set-cats { position: absolute; left: 72px; top: 150px; bottom: 56px; width: 392px; box-sizing: border-box; padding: 14px; border-radius: 36px; display: flex; flex-direction: column; gap: 4px; }
-.set-cat { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 999px; font: 500 21px var(--sans); transition: background 150ms, color 150ms; }
+/* Focus in Settings moves instantly: animating it ran at ~30fps on the TV. */
+.set-cat { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 999px; font: 500 21px var(--sans); }
 .set-cat i { width: 30px; height: 30px; border-radius: 9px; flex: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
 .set-cat.sel { background: rgba(255,255,255,.14); }
 .set-cat.focus { background: var(--focus); color: var(--focus-ink); }
 .set-detail { position: absolute; left: 492px; right: 72px; top: 54px; bottom: 56px; box-sizing: border-box; padding: 34px 40px; border-radius: 40px; overflow: hidden; }
 .set-detail h3 { margin: 0; font-family: var(--display); font-weight: var(--dw); letter-spacing: var(--dls); font-size: 42px; line-height: 1.1; }
 .set-detail .lede { margin: 6px 0 18px; font: 17px/1.4 var(--sans); color: rgba(255,255,255,.7); }
-.set-view { position: absolute; left: 40px; right: 40px; top: 128px; bottom: 30px; overflow: hidden; }
+/* Its own layer, so changing the rows doesn't repaint the glass panel under them. */
+.set-view { position: absolute; left: 40px; right: 40px; top: 128px; bottom: 30px; overflow: hidden; will-change: transform; }
 .set-rows { display: flex; flex-direction: column; gap: 8px; transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
 .set-tip { padding: 14px 20px; border-radius: 20px; background: rgba(255,255,255,.1); font: 18px/1.4 var(--sans); color: rgba(255,255,255,.88); margin-bottom: 4px; }
 .set-tip b { display: block; font-size: 13px; font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.6); margin-bottom: 3px; }
 .set-sec { font: 700 13px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.55); margin: 10px 0 0 6px; }
-.srow2 { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 62px; box-sizing: border-box; padding: 10px 22px; border-radius: 22px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.srow2 { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 62px; box-sizing: border-box; padding: 10px 22px; border-radius: 22px; background: rgba(255,255,255,.07); }
 .srow2 .l { font: 500 21px var(--sans); display: flex; align-items: center; gap: 10px; }
 .srow2 .l i { width: 12px; height: 12px; border-radius: 50%; }
 .srow2 .s { font: 15px var(--sans); color: rgba(255,255,255,.62); margin-top: 3px; }
@@ -140,7 +155,7 @@ html, body { background: #000; }
 .srow2.focus .switch:not(.on) { background: rgba(0,0,0,.2); }
 /* The picture picker (Settings → Pictures → Picture) */
 .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 6px; }
-.ptile { border-radius: 20px; padding: 6px; background: rgba(255,255,255,.07); transition: background 150ms, color 150ms, transform 180ms; }
+.ptile { border-radius: 20px; padding: 6px; background: rgba(255,255,255,.07); }
 .ptile .im { height: 118px; border-radius: 14px; background: rgba(255,255,255,.08) center / cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 54px; }
 .ptile .t { font: 500 15px var(--sans); padding: 8px 6px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ptile.on .t::before { content: '✓ '; color: var(--on); }
@@ -155,7 +170,7 @@ html, body { background: #000; }
 <body>
 <div id="stage">
   <div class="wall" id="wall"><!-- No drift behind Home: a moving picture re-blurs it and every glass panel each frame (25fps on the TV vs 37 still). --><div class="scene" id="scene"><div class="sky"></div><div class="ridge r1"></div><div class="ridge r2"></div><div class="pic"></div><div class="pic"></div></div><canvas class="blurred" id="blurred"></canvas><div class="dim"></div></div>
-  <div class="shade"></div>
+  <canvas class="shade" id="shade" width="320" height="180"></canvas>
 
   <div class="homeui">
     <div class="top">
@@ -226,7 +241,7 @@ html, body { background: #000; }
     { name: 'Screensaver', caption: 'Clock, weather, calendar and headlines, right now', run: function () { sleep(); } },
     { name: 'Settings', caption: 'Glass, pictures, screensaver, news, calendar', run: function () { openSettings(); } },
     { name: 'TV settings', caption: 'Fire OS settings: network, display, inputs', run: function () { A && A.tvSettings(); } },
-    { name: 'Amazon home', caption: 'Amazon’s home for 10 minutes: inputs, app library', run: function () { A && A.amazonHome(); } }
+    { name: 'Amazon home', caption: 'Amazon’s home until you press Home: inputs, app library', run: function () { A && A.amazonHome(); } }
   ];
 
   // Tab pill: Up from Favorites focuses it.
@@ -293,6 +308,7 @@ html, body { background: #000; }
           t.insertAdjacentHTML('beforeend', '<span class="tname txt"></span>');
           t.querySelector('.tname').textContent = a.name;
         }
+        t._r = r;
         sh.row.appendChild(t);
         return t;
       });
@@ -300,6 +316,7 @@ html, body { background: #000; }
       root.appendChild(el);
     });
     if (!shelves[st.r].items.length) st.r = 2;
+    lineUp();
   }
 
   // Tile art: the app's TV banner fills the tile; otherwise its icon at 132px on the app's color,
@@ -355,6 +372,7 @@ html, body { background: #000; }
     var y = st.r * 312;   // the focused row takes the Favorites spot, so its name below stays on screen
     $('scroll').style.transform = 'translateY(' + (-y) + 'px)';
     stage.classList.toggle('down', st.r > 0);
+    shadeTo(st.r > 0 ? 1 : 0, stage.classList.contains('jump'));
 
     var sys = st.r === 2, tab = st.r < 0;
     fitTitle(it ? it.name : '');
@@ -362,6 +380,35 @@ html, body { background: #000; }
     $('kicker').hidden = tab || (st.r === 0 && !st.moving);   // the Favorites row needs no label
     $('heroDot').style.background = sys ? '#8C8A85' : it ? it.color : '';
     $('heroCaption').textContent = st.moving ? '◀ ▶ to move · OK when it’s in place' : (sys || tab) && it ? it.caption : '';
+  }
+
+  // The shade over the picture: Home's corner gradients (0), crossfading to flat 45% black (1) once the rows move up.
+  var shadeAt = -1, shadeGoal = 0, shadeFrom = 0, shadeStart = 0, shadeRaf = 0, SHADE_MS = 400;
+  function drawShade(t) {
+    var c = $('shade'), x = c.getContext('2d'), w = c.width, h = c.height, g;
+    x.clearRect(0, 0, w, h);
+    x.globalAlpha = 1 - t;
+    g = x.createLinearGradient(0, h, 0, h * .45);
+    g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    g = x.createLinearGradient(0, 0, w * .5, 0);
+    g.addColorStop(0, 'rgba(0,0,0,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.globalAlpha = t;
+    x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, 0, w, h);
+    x.globalAlpha = 1;
+    shadeAt = t;
+  }
+  function shadeTo(goal, instant) {
+    if (instant) { cancelAnimationFrame(shadeRaf); shadeRaf = 0; shadeGoal = goal; if (shadeAt !== goal) drawShade(goal); return; }
+    if (goal === shadeGoal && (shadeRaf || shadeAt === goal)) return;
+    shadeGoal = goal; shadeFrom = Math.max(0, shadeAt); shadeStart = performance.now();
+    cancelAnimationFrame(shadeRaf);
+    shadeRaf = requestAnimationFrame(function step(now) {
+      var p = Math.min(1, (now - shadeStart) / SHADE_MS), e = 1 - (1 - p) * (1 - p);
+      drawShade(shadeFrom + (shadeGoal - shadeFrom) * e);
+      shadeRaf = p < 1 ? requestAnimationFrame(step) : 0;
+    });
   }
 
   // The name is 120px; names too long for the space beside the widgets step down (to 72px at most).
@@ -438,8 +485,13 @@ html, body { background: #000; }
   function endMove() { if (st.moving) { st.moving = false; saveFavs(favPkgs()); } }
 
   // ---- Screensaver and Settings ----
-  function sleep() { closeSheet(); endMove(); render(); if (A) A.startScreensaver(); }
-  function openSettings() { if (window.settingsScreen) settingsScreen.open(); }
+  // Drops to the sharp picture and lets it reach the screen before the screensaver covers Home: a hidden WebView
+  // draws nothing, so whatever was last on screen flashes up first when Home comes back.
+  function sleep() {
+    closeSheet(); endMove(); render(); pause();
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (A) A.startScreensaver(); }); });
+  }
+  function openSettings() { if (window.settingsScreen) { settingsScreen.open(); lineUp(); } }
 
   // ---- Remote ----
   function key(k) {
@@ -500,6 +552,7 @@ html, body { background: #000; }
     var now = new Date();
     $('time').textContent = fmt.time(now, prefs.clock24);
     $('date').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    lineUp();   // the clock's width moves the tab pill
   }
 
   function renderWeather() {
@@ -516,11 +569,13 @@ html, body { background: #000; }
       r.querySelector('span').textContent = d.text;
       f.appendChild(r);
     });
+    lineUp();
   }
 
   function renderCal() {
     $('cal').hidden = !prefs.calHome;
     calendar.render($('cal'), new Date(), prefs);
+    lineUp();
   }
 
   function greet() {
@@ -545,27 +600,59 @@ html, body { background: #000; }
 
   // The blurred, dimmed picture behind Home: drawn once into a 640x360 canvas (a quarter-ish of the
   // 1792x1008 picture box, so the Home blur scales down with it) and stretched over the sharp picture.
-  var BW = 640, BH = 360;
+  var BW = 640, BH = 360, blurDrawn = '';
   function drawBlur() {
     var c = $('blurred'), x = c.getContext('2d'), scene = $('scene');
     var front = scene.querySelectorAll('.pic')[scene._front || 0], url = front.classList.contains('on') && front.dataset.url;
     var px = store.get('homeBlur', 28) * BW / 1792, m = Math.ceil(px * 2) + 1;   // overscan so the edges don't blur into black
+    // Every resume asks again; redrawing the same picture cost ~200ms of decode, blur and re-rastered glass mid-wake.
+    var drawn = url + '|' + px;
+    if (drawn === blurDrawn) return;
+    blurDrawn = drawn;
     function paint(img) {
+      if (drawn !== blurDrawn) return;   // a newer picture is on its way
       c.width = BW; c.height = BH;
       x.filter = 'blur(' + px.toFixed(2) + 'px) brightness(.72) saturate(1.25)';
       var w = BW + 2 * m, h = BH + 2 * m;
-      if (img) {
-        var ia = img.naturalWidth / img.naturalHeight, ba = w / h, sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-        if (ia > ba) { sw = sh * ba; sx = (img.naturalWidth - sw) / 2; } else { sh = sw / ba; sy = (img.naturalHeight - sh) / 2; }
-        x.drawImage(img, sx, sy, sw, sh, -m, -m, w, h);
-      } else placeholder(x, -m, -m, w, h);
+      if (img) pictures.cover(x, img, -m, -m, w, h); else placeholder(x, -m, -m, w, h);
+      drawBackdrop();
     }
     if (!url) return paint(null);
-    var img = new Image();
-    img.onload = function () { paint(img); };
-    img.onerror = function () { paint(null); };
-    img.src = url;
+    pictures.small(url, 960, function (img) {
+      paint(img);
+      if (!img && drawn === blurDrawn) blurDrawn = '';   // try again next time
+    });
   }
+  // What glass shows (see the .glass CSS): the blurred picture where it sits once Home is in (the 1792x1008 box
+  // at -96,-54, scaled 1.08 about the stage's center), with the shade's corner gradients, saturated 1.6x like
+  // backdrop-filter did. One 640x360 image covering the 1600x900 stage.
+  function drawBackdrop() {
+    var c = document.createElement('canvas'), x = c.getContext('2d'), k = 640 / 1600, z = 1.08, g;
+    c.width = 640; c.height = 360;
+    x.scale(k, k);
+    x.filter = 'saturate(1.6)';
+    x.drawImage($('blurred'), 800 - 896 * z, 450 - 504 * z, 1792 * z, 1008 * z);
+    x.filter = 'none';
+    g = x.createLinearGradient(0, 900, 0, 405);
+    g.addColorStop(0, 'rgba(0,0,0,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+    g = x.createLinearGradient(0, 0, 800, 0);
+    g.addColorStop(0, 'rgba(0,0,0,.35)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, 1600, 900);
+    stage.style.setProperty('--backdrop', 'url(' + c.toDataURL('image/jpeg', .9) + ')');
+  }
+  // Points each glass piece's backdrop at where the piece sits on the stage: layout position, ignoring transforms,
+  // so it's where it comes to rest. A tile's row rests at the top of the scroll when focused (render: r * 312).
+  function lineUp() {
+    var all = stage.querySelectorAll('.glass:not(.app)');
+    for (var i = 0; i < all.length; i++) {
+      var el = all[i], x = 0, y = -(el._r || 0) * 312;
+      for (var p = el; p && p !== stage; p = p.offsetParent) { x += p.offsetLeft; y += p.offsetTop; }
+      el.style.setProperty('--bx', -x + 'px');
+      el.style.setProperty('--by', -y + 'px');
+    }
+  }
+
   // The dusk placeholder scene (ui.css .scene .sky/.r1/.r2), for the canvas.
   function placeholder(x, l, t, w, h) {
     var g = x.createLinearGradient(0, t, 0, t + h);
@@ -593,15 +680,26 @@ html, body { background: #000; }
   var shownBlur = null;
 
   // Called by MainActivity whenever Home comes back: from an app, the screensaver or the Home button.
-  function resume() {
+  var shownFor = 0;
+  function resume(n) {
+    if (n) shownFor = n;
     closeSheet(); endMove();
-    applyPrefs();
-    build(); render();
-    greet();
-    refreshWeather();
+    // Back within moments (the Home button pressed again and again): rebuilding each time piled up
+    // behind fast presses.
+    if (Date.now() - pausedAt >= QUICK_RETURN_MS) {
+      applyPrefs();
+      build(); render();
+      greet();
+      refreshWeather();
+    }
+    // Kept as it was (see pause): carry on, like the snapshot HomeGuard covered Amazon's home with.
+    if (stage.classList.contains('awake')) {
+      drawn();
+      return;
+    }
     // Blur in: start sharp like the screensaver, then fade in the blurred copy once it's drawn.
     // The screensaver may have moved on, so the picture switches without a crossfade.
-    pause();
+    toSharp();
     var woke = false;
     function wake() {
       if (woke) return;
@@ -610,17 +708,31 @@ html, body { background: #000; }
     }
     showPicture(true, wake);
     setTimeout(wake, 600);
+    drawn();
+  }
+  // Tells HomeGuard once this frame has reached the screen, so its cover comes off onto Home and not
+  // onto a blank or half-drawn page.
+  function drawn() {
+    requestAnimationFrame(function () { requestAnimationFrame(function () { if (A && A.homeDrawn) A.homeDrawn(shownFor); }); });
   }
 
   window.home = {
-    applyPrefs: applyPrefs, rebuild: function () { build(); render(); }, sleep: sleep, render: render,
+    applyPrefs: applyPrefs, rebuild: function () { build(); render(); }, sleep: sleep, render: function () { render(); lineUp(); },
     resetFavorites: function () { store.set('favorites', DEFAULT_FAVS); build(); render(); },
     defaultFavorites: DEFAULT_FAVS, wifiLevel: wifiLevel, refreshWeather: refreshWeather, showPicture: showPicture,
     preview: function (pic) { pictures.show($('scene'), pic, drawBlur); }
   };
   // Called by MainActivity as Home goes out of sight: drop straight to the sharp picture (no
   // transition) so the next resume starts there instead of flashing the old blurred frame.
-  function pause() {
+  // keep: Home didn't open what's in front (the Home button, most likely): it stays as it is and
+  // comes back that way, as dropping showed the bare picture whenever HomeGuard's cover went up a
+  // beat after the press.
+  var pausedAt = 0, QUICK_RETURN_MS = 3000;
+  function pause(keep) {
+    pausedAt = Date.now();
+    if (!keep) toSharp();
+  }
+  function toSharp() {
     closeSheet(); endMove();
     stage.classList.add('instant');
     stage.classList.remove('awake');
@@ -647,7 +759,7 @@ html, body { background: #000; }
       !(window.settingsScreen && settingsScreen.isOpen());
   }
 
-  window.tv = { key: key, resume: resume, pause: pause, home: goHome, atHome: atHome };
+  window.tv = { key: key, resume: resume, pause: pause, home: goHome, atHome: atHome, drawn: drawn };
   TABS[2].caption = claudeCaption();
 
   document.addEventListener('livedata', function () { renderWifi(); renderCal(); });
@@ -661,7 +773,7 @@ html, body { background: #000; }
   window.addEventListener('resize', function () { fit(); render(); });
   fit();
   resume();
-  if (document.fonts) document.fonts.ready.then(render);
+  if (document.fonts) document.fonts.ready.then(function () { render(); lineUp(); });
   setInterval(tick, 15000);
   setInterval(refreshWeather, 10 * 60 * 1000);
   setInterval(showPicture, 60 * 1000);

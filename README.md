@@ -44,7 +44,7 @@ Tiers: `tracking`, `ads`, `extras`, and the opt-in `updates`, `screensaver`.
 
 A full-screen WebView app (`launcher/app/src/main/assets/index.html`) wrapped in a tiny Android shell, built without Gradle by `launcher/build.sh` (needs `openjdk@17` + `android-commandlinetools` with build-tools 34 and platform 28).
 
-Fire OS handles the real remote's Home before any app sees it, and Android then delays other apps' activity starts by ~5s. So `HomeGuard` (an accessibility service, enabled over ADB) watches for Amazon's home and instantly covers it with a snapshot of Griffin Home, ignoring remote presses until the real screen takes over. The "Amazon home" tile pauses the guard for 10 minutes (for inputs / Amazon's app library). Settings → Home guard turns it off entirely.
+Fire OS handles the real remote's Home before any app sees it, and Android then delays other apps' activity starts by ~5s. So `HomeGuard` (an accessibility service, enabled over ADB) watches for Amazon's home and instantly covers it with a snapshot of Griffin Home, ignoring remote presses until the real screen takes over. It starts Griffin Home through an alarm, which the system starts itself and that delay lets through, so Home is back ~0.4s after the press, however many times it's pressed. The "Amazon home" tile pauses the guard (for inputs / Amazon's app library) until the next Home press. To cover it before it draws, the guard also reads the system log (`READ_LOGS`, granted by `install-launcher.sh`), where Fire OS's start of Amazon's home shows ~5ms after the Home press. Settings → Home guard turns it off entirely.
 
 The home screen shows Chicago weather and a 3-day forecast from [Open-Meteo](https://open-meteo.com) (no API key).
 

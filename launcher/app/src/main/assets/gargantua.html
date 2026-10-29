@@ -258,11 +258,11 @@ void main() {
 
   // Stills: slow Ken Burns zoom, crossfades, film grain and a drifting light leak.
   function showStill(still, done) {
-    var img = new Image();
+    var img = new Image(), src = window.Stills && Stills.screen && Stills.screen(still.name) || still.src;   // screen-sized once made
     img.onload = function () {
       var layer = layers[front ^= 1], old = layers[front ^ 1];
       layer.style.transition = 'none';
-      layer.style.backgroundImage = 'url("' + still.src + '")';
+      layer.style.backgroundImage = 'url("' + src + '")';
       layer.style.transformOrigin = ORIGINS[Math.floor(Math.random() * ORIGINS.length)];
       layer.style.transform = 'scale(1)';
       layer.style.zIndex = 2; old.style.zIndex = 1;
@@ -276,7 +276,7 @@ void main() {
       if (done) done();
     };
     img.onerror = function () { if (done) done(); };
-    img.src = still.src;
+    img.src = src;
   }
 
   function stillsRound(left) {

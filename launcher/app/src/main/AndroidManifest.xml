@@ -10,6 +10,9 @@
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <!-- Settings → Screensaver → Start after sets the screen timeout; granted with appops by install-launcher.sh. -->
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
+    <!-- HomeGuard reads Fire OS's start of Amazon's home from the system log to catch the Home button
+         early; granted over ADB by install-launcher.sh. -->
+    <uses-permission android:name="android.permission.READ_LOGS" />
     <!-- Chicago weather (Open-Meteo) on the home screen and screensaver. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Wi-Fi strength next to the clock. -->

@@ -61,14 +61,30 @@
         function () { return look.font('text'); }, function (v) { setFont('text', v); }),
       cho('Text size', null, ['Default', 'Large'], pref('textSize'), setPref('textSize'))
     ]; } },
-    { name: 'Pictures', color: '#FF9F0A', lede: 'What fills the screensaver and Home. Your background redo lands here.', rows: function () { return [
-      act('Picture', prefs.picPick ? 'Staying on this one' : 'Pick one to keep, or rotate', pickName(), openPicker),
-      sec('Rotate'),
-      cho('Show', null, ['Your pictures', 'Film stills', 'Apple aerials', 'All of them'], pref('picSource'), function (v) { prefs.picSource = v; prefs.picPick = null; savePrefs(); pictures.next(prefs); home.showPicture(); }),
-      cho('Change picture', null, ['Every 5 minutes', '15 minutes', 'Every hour', 'Once a day'], pref('picEvery'), function (v) { prefs.picEvery = v; prefs.picPick = null; savePrefs(); home.showPicture(); }),
-      tog('Shuffle', 'Random order instead of in sequence', pref('picShuffle'), setPref('picShuffle')),
-      act('Add pictures', 'From your Mac with scripts/stills.sh', 'Mac', function () { toast('Add pictures from your Mac: ./scripts/stills.sh'); })
-    ]; } },
+    { name: 'Pictures', color: '#FF9F0A', lede: 'What fills the screensaver and Home: one picture, or rotate through the films and topics you turn on.', rows: function () {
+      var topics = pictures.topics(), off = prefs.picTopics;
+      var nOn = topics.filter(function (t) { return off[t.name] !== false; }).length;
+      var rows = [
+        act('Picture', prefs.picPick ? 'Staying on this one' : 'Pick one to keep, or rotate', pickName(), openPicker),
+        sec('Rotate'),
+        cho('Change picture', null, ['Every 5 minutes', '15 minutes', 'Every hour', 'Once a day'], pref('picEvery'), function (v) { prefs.picEvery = v; prefs.picPick = null; savePrefs(); home.showPicture(); }),
+        tog('Shuffle', 'Random order instead of in sequence', pref('picShuffle'), setPref('picShuffle')),
+        sec('Films & topics')
+      ];
+      // Each film, your own pictures and each kind of aerial. Turning one off moves on if it's showing.
+      topics.forEach(function (t) {
+        rows.push(tog(t.name, t.count + (t.count === 1 ? ' picture' : ' pictures'), function () { return off[t.name] !== false; }, function (v) {
+          off[t.name] = v; prefs.picPick = null; savePrefs(); home.showPicture();
+          if (!v && nOn === 1) toast('With every topic off, all pictures rotate');
+        }));
+      });
+      rows.push(
+        act('Show everything', 'Turn every film and topic back on', nOn === topics.length ? 'All on' : nOn + ' of ' + topics.length, function () {
+          prefs.picTopics = {}; prefs.picPick = null; savePrefs(); home.showPicture(); toast('Rotating through everything');
+        }),
+        act('Add pictures', 'From your Mac with scripts/stills.sh', 'Mac', function () { toast('Add pictures from your Mac: ./scripts/stills.sh'); }));
+      return rows;
+    } },
     { name: 'Screensaver', color: '#64D2FF', lede: 'Clock, weather, calendar and headlines over your picture.', rows: function () { return [
       act('Start now', null, '▶', function () { close(); home.sleep(); }),
       cho('Start after', 'Idle time before it comes on', ['5 minutes', '10 minutes', '15 minutes', '30 minutes', 'Never'], saverAfter, function (v) {
@@ -125,7 +141,7 @@
       }),
       act('Ads & tracking', '17 Amazon apps disabled · 3 protected by Fire OS', 'Cleaned', function () { toast('Managed from the Mac: scripts/debloat.sh'); }),
       act('TV settings', 'Display, inputs, sound', '›', function () { if (A) A.tvSettings(); }),
-      act('Amazon home', 'For 10 minutes: inputs, app library', '›', function () { if (A) A.amazonHome(); }),
+      act('Amazon home', 'Until you press Home: inputs, app library', '›', function () { if (A) A.amazonHome(); }),
       act('Restore everything', 'Re-enable apps, stock animations, Amazon home', 'Mac', function () { toast('Run ./scripts/restore.sh on your Mac'); })
     ]; } },
     { name: 'About', color: '#C7C7CC', lede: 'Griffin Home on your TCL 55S450F.', rows: function () { return [
@@ -169,8 +185,9 @@
   function renderGrid(box) {
     $('setH').textContent = 'Picture';
     $('setLede').textContent = 'Choose one to keep on Home and the screensaver. It shows behind as you move.';
-    var g = document.createElement('div'), missing = false, focusEl = null;
+    var g = document.createElement('div'), missing = false;
     g.className = 'pgrid';
+    PICK.els = [];
     PICK.items.forEach(function (it, i) {
       var d = document.createElement('div'), on = it.rotate ? !prefs.picPick : prefs.picPick && pictures.same(it, prefs.picPick);
       d.className = 'ptile' + (i === PICK.i ? ' focus' : '') + (on ? ' on' : '') + (it.rotate ? ' rot' : '');
@@ -182,18 +199,22 @@
       }
       d.lastChild.textContent = it.title + (it.kind === 'aerial' ? ' · aerial' : '');
       g.appendChild(d);
-      if (i === PICK.i) focusEl = d;
+      PICK.els.push(d);
     });
     box.appendChild(g);
-    var y = 0, viewH = box.parentNode.clientHeight;
-    if (focusEl) {
-      var top = Math.floor(PICK.i / COLS) * (focusEl.offsetHeight + 16);
-      y = Math.max(0, Math.min(top - (viewH - focusEl.offsetHeight) / 2, g.offsetHeight - viewH + 8));
-    }
-    box.style.transform = 'translateY(' + (-y) + 'px)';
+    gridInView();
     // Thumbnails are made on the TV the first time; fill them in as they arrive.
     clearTimeout(thumbT);
     if (missing) thumbT = setTimeout(function () { if (isOpen() && SET.pane === 'grid') render(); }, 1500);
+  }
+  // Keeps the focused picture's row centered where the grid allows.
+  function gridInView() {
+    var box = $('setRows'), el = PICK.els[PICK.i], y = 0, viewH = box.parentNode.clientHeight;
+    if (el) {
+      var top = Math.floor(PICK.i / COLS) * (el.offsetHeight + 16);
+      y = Math.max(0, Math.min(top - (viewH - el.offsetHeight) / 2, el.parentNode.offsetHeight - viewH + 8));
+    }
+    box.style.transform = 'translateY(' + (-y) + 'px)';
   }
   function gridKey(k) {
     var n = PICK.items.length, i = PICK.i;
@@ -203,8 +224,14 @@
     else if (k === 'down') i = Math.min(n - 1, i + COLS);
     else if (k === 'ok') return choose(), render();
     else if (k === 'back') { SET.pane = 'rows'; home.showPicture(); return render(); }
-    if (i !== PICK.i) { PICK.i = i; preview(); }
-    render();
+    // Moving only moves the focus: rebuilding ~85 thumbnails per press was most of a slow frame.
+    if (i !== PICK.i) {
+      PICK.els[PICK.i].classList.remove('focus');
+      PICK.i = i;
+      PICK.els[i].classList.add('focus');
+      gridInView();
+      preview();
+    }
   }
 
   function setFont(which, name) {
@@ -263,7 +290,8 @@
       tip.innerHTML = '<b>Tip</b>Hold OK on any app for options: open, move, remove from Favorites, or hide it.';
       box.appendChild(tip);
     }
-    var focusEl = null, n = 0;
+    var n = 0;
+    SET.els = [];
     all.forEach(function (r) {
       if (r.type === 'section') { var h = document.createElement('div'); h.className = 'set-sec'; h.textContent = r.label; box.appendChild(h); return; }
       var i = n++, d = document.createElement('div');
@@ -278,11 +306,14 @@
       else if (r.type === 'choice') { v.innerHTML = '<span class="chev">‹</span><span></span><span class="chev">›</span>'; v.children[1].textContent = r.get(); }
       else v.textContent = r.value || '';
       box.appendChild(d);
-      if (SET.pane === 'rows' && i === SET.row) focusEl = d;
+      SET.els.push(d);
     });
-    // Keep the focused row in view: if it's below the visible area, it sits 8px above the bottom.
-    var y = 0, viewH = box.parentNode.clientHeight;
-    if (focusEl && focusEl.offsetTop + focusEl.offsetHeight > viewH) y = focusEl.offsetTop + focusEl.offsetHeight - viewH + 8;
+    rowInView();
+  }
+  // Keep the focused row in view: if it's below the visible area, it sits 8px above the bottom.
+  function rowInView() {
+    var box = $('setRows'), el = SET.pane === 'rows' && SET.els[SET.row], y = 0, viewH = box.parentNode.clientHeight;
+    if (el && el.offsetTop + el.offsetHeight > viewH) y = el.offsetTop + el.offsetHeight - viewH + 8;
     box.style.transform = 'translateY(' + (-y) + 'px)';
   }
 
@@ -305,13 +336,21 @@
       else if (k === 'back') return close();
     } else {
       var r = SET.rows[SET.row];
-      if (k === 'up') SET.row = Math.max(0, SET.row - 1);
-      else if (k === 'down') SET.row = Math.min(SET.rows.length - 1, SET.row + 1);
+      if (k === 'up' || k === 'down') return moveRow(k === 'up' ? Math.max(0, SET.row - 1) : Math.min(SET.rows.length - 1, SET.row + 1));
       else if (k === 'ok') return activate(1);
       else if ((k === 'left' || k === 'right') && r && r.type === 'choice') return activate(k === 'right' ? 1 : -1);
       else if (k === 'left' || k === 'back') SET.pane = 'cats';
     }
     render();
+  }
+
+  // Up and down within a list only move the focus; rebuilding both lists made each press a ~90ms frame.
+  function moveRow(i) {
+    if (i === SET.row || !SET.els[i]) return;
+    if (SET.els[SET.row]) SET.els[SET.row].classList.remove('focus');
+    SET.row = i;
+    SET.els[i].classList.add('focus');
+    rowInView();
   }
 
   // Live data can add calendars or change the network while Settings is up.

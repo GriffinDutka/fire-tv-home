@@ -16,6 +16,7 @@ public class Gargantua extends DreamService {
         setInteractive(false); // any remote press wakes the TV
         setFullscreen(true);
         setScreenBright(true);
+        MainActivity.dreaming();
         saver = new SaverView(this);
         setContentView(saver);
     }

@@ -5,3 +5,6 @@ launcher/build/
 launcher/debug.keystore
 stills/images/
 stills/aerials/
+# Calendar secret addresses (only the example is tracked)
+config/*
+!config/calendars.example.txt

@@ -1,0 +1,12 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+BEGIN:VEVENT
+UID:folded@test
+DTSTART;TZID=America/Chicago:20261030T193000
+DTEND;TZID=America/Chicago:20261030T210000
+SUMMARY:Dinner with Sam\, Alex and Jordan at the place on Milwaukee Ave t
+ hat we keep meaning to try
+DESCRIPTION:Line one\nLine two
+	continued with a tab
+END:VEVENT
+END:VCALENDAR

@@ -1,6 +1,7 @@
 package com.griffin.home;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -9,6 +10,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -30,20 +32,30 @@ import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends Activity {
-    private static final long AMAZON_HOME_PAUSE_MS = 10 * 60 * 1000;
-    private static final long SNAPSHOT_DELAY_MS = 1500;
+    private static final long AMAZON_HOME_PAUSE_MS = 60 * 60 * 1000;   // the Home button or turning the TV off ends it sooner
+    // Drawing the WebView into a bitmap holds up its frames for ~340ms on the TV, so it waits until the
+    // blur-in is over and the remote has been still a while.
+    private static final long SNAPSHOT_DELAY_MS = 4000;
+    private static final long SNAPSHOT_QUIET_MS = 3000;
     private static final long SNAPSHOT_EVERY_MS = 60 * 1000;
     private static final long HOLD_MS = 550;
+    private static final long OPENED_MS = 2000;   // an onPause this soon after Home opened something is that
+    private static final String SILK = "com.amazon.cloud9";
 
     private WebView web;
-    private boolean resumed;
+    private volatile boolean resumed;
+    private volatile int resumes;
+    private long openedAt;
+    private long lastKeyAt;
     private boolean okDown, okHeld;
     private final Runnable snapshot = this::snapshot;
+    private static java.lang.ref.WeakReference<MainActivity> current;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
+        current = new java.lang.ref.WeakReference<>(this);
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#0B0B0C"));
         web.setFocusable(false);
@@ -54,6 +66,8 @@ public class MainActivity extends Activity {
         ws.setAllowFileAccess(true);
         ws.setAllowFileAccessFromFileURLs(true); // app banners and stills are file:// images outside the assets
         web.addJavascriptInterface(new Bridge(), "Android");
+        web.addJavascriptInterface(new Store(this), "Store");
+        web.addJavascriptInterface(new Data(this, web), "Data");
         // Film stills for the home backdrop; aerial count for Settings.
         web.addJavascriptInterface(new Media(this, "stills", ".jpg", null), "Stills");
         web.addJavascriptInterface(new Media(this, "aerials", ".mov", null), "Aerials");
@@ -67,7 +81,8 @@ public class MainActivity extends Activity {
         super.onResume();
         Prefs.resume(this);
         hideSystemUi();
-        js("window.tv && tv.resume()");
+        // Numbered, so word that it has drawn can be matched to this return and not an earlier one.
+        js("window.tv && tv.resume(" + (++resumes) + ")");
         resumed = true;
         HomeGuard.homeShown();
         web.removeCallbacks(snapshot);
@@ -78,11 +93,29 @@ public class MainActivity extends Activity {
     protected void onPause() {
         resumed = false;
         web.removeCallbacks(snapshot);
+        // Back to the sharp picture while hidden, so returning starts there and blurs in; but only when
+        // Home opened what's coming up. Otherwise (the Home button) it keeps its look, see tv.pause.
+        boolean opened = android.os.SystemClock.uptimeMillis() - openedAt < OPENED_MS;
+        js("window.tv && tv.pause && tv.pause(" + !opened + ")");
         super.onPause();
     }
 
     /** Picture of the home screen that HomeGuard flashes over Amazon's home while ours starts. */
     private void snapshot() {
+        if (!resumed || web.getWidth() == 0) return;
+        long quiet = android.os.SystemClock.uptimeMillis() - lastKeyAt;
+        if (quiet < SNAPSHOT_QUIET_MS) {
+            web.postDelayed(snapshot, SNAPSHOT_QUIET_MS - quiet);
+            return;
+        }
+        web.postDelayed(snapshot, SNAPSHOT_EVERY_MS);
+        // Only while Home sits on its landing spot, so the cover matches where the Home button lands.
+        web.evaluateJavascript("!!(window.tv && tv.atHome && tv.atHome())", v -> {
+            if ("true".equals(v)) capture();
+        });
+    }
+
+    private void capture() {
         if (!resumed || web.getWidth() == 0) return;
         try {
             Bitmap b = Bitmap.createBitmap(web.getWidth(), web.getHeight(), Bitmap.Config.RGB_565);
@@ -97,17 +130,54 @@ public class MainActivity extends Activity {
                 } finally {
                     img.recycle();
                 }
-                tmp.renameTo(new File(getFilesDir(), HomeGuard.SNAPSHOT));
+                if (tmp.renameTo(new File(getFilesDir(), HomeGuard.SNAPSHOT))) HomeGuard.snapshotSaved();
             }).start();
         } catch (RuntimeException | OutOfMemoryError ignored) {
         }
-        web.postDelayed(snapshot, SNAPSHOT_EVERY_MS);
+    }
+
+    @Override
+    public void startActivityForResult(Intent intent, int requestCode, Bundle options) {
+        openedAt = android.os.SystemClock.uptimeMillis();
+        super.startActivityForResult(intent, requestCode, options);
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        js("window.tv && tv.resume()");
+        // Only the Home button (HomeGuard or the system) brings Home back this way: land on the first Favorite.
+        // onResume follows if Home was out of sight; resuming here too queued up a second rebuild per press.
+        js("window.tv && tv.home && tv.home()");
+        if (resumed) {
+            // Already in front, so no onResume: tell HomeGuard here.
+            HomeGuard.homeShown();
+            js("window.tv && tv.drawn && tv.drawn()");
+        }
+    }
+
+    /** Whether Home is the activity in front. */
+    static boolean inFront() {
+        MainActivity a = current == null ? null : current.get();
+        return a != null && a.resumed;
+    }
+
+    /**
+     * HomeGuard calls this the moment the Home button shows Amazon's home, seconds before Fire OS
+     * lets us back in front, so Home is already on its landing spot when it reappears.
+     */
+    static void landHome() {
+        MainActivity a = current == null ? null : current.get();
+        if (a != null) a.js("window.tv && tv.home && tv.home()");
+    }
+
+    /**
+     * Gargantua calls this as the screensaver comes on, while Home can still draw under it: Home drops to
+     * the sharp picture now, so that's what shows when it comes back (onPause is too late, a hidden
+     * WebView draws nothing and the old Home flashed up first).
+     */
+    static void dreaming() {
+        MainActivity a = current == null ? null : current.get();
+        if (a != null) a.js("window.tv && tv.pause && tv.pause()");
     }
 
     private void hideSystemUi() {
@@ -124,6 +194,7 @@ public class MainActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent e) {
         String key = keyName(e.getKeyCode());
         if (key == null) return super.dispatchKeyEvent(e);
+        lastKeyAt = e.getEventTime();
         boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
         if (key.equals("ok")) {
             if (down && e.getRepeatCount() == 0) {
@@ -305,6 +376,29 @@ public class MainActivity extends Activity {
             }
         }
 
+        /** A web page in Silk (the Claude tab, when the Claude app isn't installed). */
+        @JavascriptInterface
+        public boolean openUrl(String url) {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try {
+                startActivity(new Intent(i).setPackage(SILK));
+            } catch (ActivityNotFoundException e) {
+                try {
+                    startActivity(i);
+                } catch (ActivityNotFoundException e2) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /** Home has drawn itself after coming back: HomeGuard can drop its cover. */
+        @JavascriptInterface
+        public void homeDrawn(int resume) {
+            if (resumed && resume == resumes) HomeGuard.homeDrawn();
+        }
+
         @JavascriptInterface
         public void startScreensaver() {
             startActivity(new Intent(MainActivity.this, ScreensaverActivity.class));
@@ -317,7 +411,7 @@ public class MainActivity extends Activity {
             startActivity(i);
         }
 
-        /** Amazon home for a few minutes (inputs, Amazon's app library), then ours again. */
+        /** Amazon home (inputs, Amazon's app library) until the Home button brings ours back. */
         @JavascriptInterface
         public void amazonHome() {
             Prefs.pauseFor(MainActivity.this, AMAZON_HOME_PAUSE_MS);
@@ -353,6 +447,47 @@ public class MainActivity extends Activity {
             boolean ok = setGuard(on);
             if (ok && !on) web.post(MainActivity.this::openAmazonHome);
             return ok;
+        }
+
+        /**
+         * Minutes of idle before the screensaver comes on, 0 if it's off. Fire OS dreams when the
+         * screen would otherwise time out (screensaver_activate_on_sleep), so this is that timeout.
+         */
+        @JavascriptInterface
+        public int saverAfter() {
+            if (Settings.Secure.getInt(getContentResolver(), "screensaver_enabled", 1) == 0) return 0;
+            return Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, 600000) / 60000;
+        }
+
+        /** 0 turns the screensaver off. Needs WRITE_SETTINGS, granted with appops by install-launcher.sh. */
+        @JavascriptInterface
+        public boolean setSaverAfter(int minutes) {
+            try {
+                Settings.Secure.putInt(getContentResolver(), "screensaver_enabled", minutes > 0 ? 1 : 0);
+                if (minutes > 0) Settings.System.putInt(getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT, minutes * 60000);
+                return true;
+            } catch (SecurityException | IllegalArgumentException e) {
+                return false;
+            }
+        }
+
+        /** Fire OS network settings, or its main settings if that screen isn't there. */
+        @JavascriptInterface
+        public void networkSettings() {
+            try {
+                startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (ActivityNotFoundException e) {
+                tvSettings();
+            }
+        }
+
+        @JavascriptInterface
+        public String version() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (PackageManager.NameNotFoundException e) {
+                return "";
+            }
         }
     }
 }

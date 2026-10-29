@@ -1,6 +1,9 @@
 package com.griffin.home;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONArray;
@@ -8,9 +11,14 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Exposed to the pages as window.Stills (.jpg) and window.Aerials (.mov): files that
@@ -22,6 +30,20 @@ class Media {
         void play(File f);
         void stop();
     }
+
+    private static final long POSTER_AT_US = 20 * 1000 * 1000;
+    private static final Set<String> MAKING = new HashSet<>();
+    private static final int THUMB_W = 480, SCREEN_W = 2400;
+    private static final ExecutorService THUMBS = Executors.newSingleThreadExecutor();
+    // Its own queue, at the lowest priority, so making screen copies never holds up thumbnails or the UI.
+    private static final ExecutorService SCREENS = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(() -> {
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_LOWEST);
+            r.run();
+        });
+        return t;
+    });
+    private static boolean warmed;
 
     private final Context context;
     private final String folder, ext;
@@ -38,7 +60,7 @@ class Media {
         return context.getExternalFilesDir(folder);
     }
 
-    /** [{src, name, title, kind}] */
+    /** [{src, name, title, kind, listed}]. listed: named in <folder>.json (film stills are; your own pictures aren't). */
     @JavascriptInterface
     public String list() {
         JSONArray out = new JSONArray();
@@ -56,7 +78,8 @@ class Media {
                         .put("src", "file://" + f.getAbsolutePath())
                         .put("name", f.getName())
                         .put("title", title)
-                        .put("kind", m != null ? m.optString("kind") : ""));
+                        .put("kind", m != null ? m.optString("kind") : "")
+                        .put("listed", m != null));
             }
         } catch (Exception ignored) {
         }
@@ -70,6 +93,131 @@ class Media {
         if (player == null || !f.exists() || name.contains("/")) return false;
         player.play(f);
         return true;
+    }
+
+    /**
+     * Aerials only: a still frame of the clip as a JPEG, so Home can show the aerial the screensaver
+     * was playing (the WebView can't decode the video). Returns its file:// URL, or null while it's
+     * still being made in the background; ask again in a few seconds.
+     */
+    @JavascriptInterface
+    public String poster(final String name) {
+        final File f = new File(dir(), name);
+        if (!f.exists() || name.contains("/")) return null;
+        final File out = new File(context.getCacheDir(), "posters/" + name + "-" + f.length() + ".jpg");
+        if (out.exists()) return "file://" + out.getAbsolutePath();
+        synchronized (MAKING) {
+            if (!MAKING.add(out.getName())) return null;
+        }
+        new Thread(() -> {
+            MediaMetadataRetriever r = new MediaMetadataRetriever();
+            try {
+                out.getParentFile().mkdirs();
+                r.setDataSource(f.getAbsolutePath());
+                Bitmap b = r.getFrameAtTime(POSTER_AT_US, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                if (b == null) return;
+                Bitmap s = Bitmap.createScaledBitmap(b, 1920, 1920 * b.getHeight() / b.getWidth(), true);
+                File tmp = new File(out.getPath() + ".tmp");
+                try (FileOutputStream o = new FileOutputStream(tmp)) {
+                    s.compress(Bitmap.CompressFormat.JPEG, 88, o);
+                }
+                tmp.renameTo(out);
+                if (s != b) s.recycle();
+                b.recycle();
+            } catch (Exception | OutOfMemoryError ignored) {
+            } finally {
+                try { r.release(); } catch (Exception ignored) { }
+                synchronized (MAKING) { MAKING.remove(out.getName()); }
+            }
+        }).start();
+        return null;
+    }
+
+    /**
+     * A small JPEG (480 wide) of a still or an aerial, for the picture picker in Settings. Like
+     * poster(): its file:// URL, or null while it's being made (one at a time, in the background).
+     */
+    @JavascriptInterface
+    public String thumb(final String name) {
+        return scaled(name, "thumbs/" + folder, THUMB_W, 82, THUMBS);
+    }
+
+    /**
+     * Stills only: a copy no bigger than the screen needs (2400 wide covers Home's and the screensaver's
+     * zoom at 1080p). Decoding and uploading a 4K still held up frames for ~250ms on the TV. Like thumb():
+     * its file:// URL, or null while it's being made; the still itself if it's already that small.
+     * The first ask also makes copies of every other still, slowly in the background, so the next
+     * picture is ready before it's needed.
+     */
+    @JavascriptInterface
+    public String screen(final String name) {
+        if (".mov".equals(ext) || name.contains("/")) return null;
+        File f = new File(dir(), name);
+        if (!f.exists()) return null;
+        if (!warmed) {
+            warmed = true;
+            final File dir = dir();
+            SCREENS.execute(() -> {
+                File[] all = dir.listFiles((d, n) -> n.toLowerCase().endsWith(ext));
+                if (all != null) for (File o : all) screenCopy(o);
+            });
+        }
+        return screenCopy(f);
+    }
+
+    private String screenCopy(File f) {
+        File out = new File(context.getCacheDir(), "screen/" + f.getName() + "-" + f.length() + ".jpg");
+        if (out.exists()) return "file://" + out.getAbsolutePath();
+        BitmapFactory.Options o = new BitmapFactory.Options();
+        o.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(f.getPath(), o);
+        if (o.outWidth > 0 && o.outWidth <= SCREEN_W) return "file://" + f.getAbsolutePath();
+        return scaled(f.getName(), "screen", SCREEN_W, 90, SCREENS);
+    }
+
+    /** A JPEG of the file `width` wide in <cache>/<sub>, made in the background; null until it exists. */
+    private String scaled(final String name, String sub, final int width, final int quality, ExecutorService queue) {
+        final File f = new File(dir(), name);
+        if (!f.exists() || name.contains("/")) return null;
+        final File out = new File(context.getCacheDir(), sub + "/" + name + "-" + f.length() + ".jpg");
+        if (out.exists()) return "file://" + out.getAbsolutePath();
+        synchronized (MAKING) {
+            if (!MAKING.add(out.getPath())) return null;
+        }
+        queue.execute(() -> {
+            Bitmap b = null, s = null;
+            MediaMetadataRetriever r = null;
+            try {
+                out.getParentFile().mkdirs();
+                if (".mov".equals(ext)) {
+                    r = new MediaMetadataRetriever();
+                    r.setDataSource(f.getAbsolutePath());
+                    b = r.getFrameAtTime(POSTER_AT_US, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                } else {
+                    BitmapFactory.Options o = new BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(f.getPath(), o);
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = 1;
+                    while (o.outWidth / (o.inSampleSize * 2) >= width) o.inSampleSize *= 2;
+                    b = BitmapFactory.decodeFile(f.getPath(), o);
+                }
+                if (b == null) return;
+                s = Bitmap.createScaledBitmap(b, width, width * b.getHeight() / b.getWidth(), true);
+                File tmp = new File(out.getPath() + ".tmp");
+                try (FileOutputStream o = new FileOutputStream(tmp)) {
+                    s.compress(Bitmap.CompressFormat.JPEG, quality, o);
+                }
+                tmp.renameTo(out);
+            } catch (Exception | OutOfMemoryError ignored) {
+            } finally {
+                if (s != null && s != b) s.recycle();
+                if (b != null) b.recycle();
+                if (r != null) try { r.release(); } catch (Exception ignored) { }
+                synchronized (MAKING) { MAKING.remove(out.getPath()); }
+            }
+        });
+        return null;
     }
 
     @JavascriptInterface

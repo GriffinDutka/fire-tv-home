@@ -1,0 +1,24 @@
+{
+  "specials": {
+    "id": "cat_specials",
+    "name": "Specials",
+    "items": [
+      { "id": 5335510, "type": 0, "name": "Moon Sweepers", "discounted": true, "discount_percent": 15, "original_price": 899, "final_price": 764, "currency": "USD", "discount_expiration": 1793379600 },
+      { "id": 4954910, "type": 0, "name": "Scam With Your Friends", "discounted": true, "discount_percent": 10, "original_price": 999, "final_price": 899, "currency": "USD", "discount_expiration": 1793293256 },
+      { "id": 111, "type": 0, "name": "City Builder™ Deluxe", "discounted": true, "discount_percent": 60, "discount_expiration": 1794243600 },
+      { "id": 222, "type": 0, "name": "Already Ended", "discounted": true, "discount_percent": 50, "discount_expiration": 1793000000 },
+      { "id": 333, "type": 0, "name": "Ends Tonight", "discounted": true, "discount_percent": 25, "discount_expiration": 1793073600 },
+      { "id": 444, "type": 0, "name": "No Discount", "discounted": false, "discount_percent": 0 }
+    ]
+  },
+  "top_sellers": {
+    "id": "cat_topsellers",
+    "name": "Top Sellers",
+    "items": [
+      { "id": 4435490, "type": 0, "name": "Call of Duty®: Modern Warfare® 4", "discounted": false, "discount_percent": 0, "original_price": 6999, "final_price": 6999, "currency": "USD" },
+      { "id": 5335510, "type": 0, "name": "Moon Sweepers", "discounted": true, "discount_percent": 15, "discount_expiration": 1793379600 },
+      { "id": 730, "type": 0, "name": "Counter-Strike 2", "discounted": false, "discount_percent": 0 }
+    ]
+  },
+  "status": 1
+}

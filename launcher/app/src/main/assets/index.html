@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Griffin Home</title>
+<title>Home</title>
 <link rel="stylesheet" href="ui.css">
 <style>
 /* Home: the picture blurred behind a greeting, widgets and rows of apps (docs/redesign/SPEC.md §5, §7–10). */
@@ -174,7 +174,7 @@ html, body { background: #000; }
 
   <div class="homeui">
     <div class="top">
-      <div class="greetBox txt"><span class="greet" id="greet">Welcome back, Griffin</span><span class="greetSub" id="greetSub"></span></div>
+      <div class="greetBox txt"><span class="greet" id="greet">Welcome back</span><span class="greetSub" id="greetSub"></span></div>
       <div class="tabs glass" id="tabs"><span class="on">Home</span><span>Apps</span><span>Claude</span><span>Settings</span></div>
       <div class="clock glass txt"><i id="wx"></i><span id="date"></span><b id="time"></b><span class="wifi" id="wifi" role="img" aria-label="Wi-Fi: strong signal"><svg viewBox="0 0 24 24" aria-hidden="true"><g class="air"><path class="a3" d="M2.6 9.2a13.4 13.4 0 0 1 18.8 0"/><path class="a2" d="M5.7 12.4a9 9 0 0 1 12.6 0"/><path class="a1" d="M8.8 15.6a4.6 4.6 0 0 1 6.4 0"/><circle class="a0" cx="12" cy="19" r="1.7"/><path class="slash" d="M4 4l16 16"/></g><g class="eth"><rect x="4" y="5" width="16" height="12" rx="2"/><path d="M8 17v3h8v-3M8.5 9v2.5M11.2 9v2.5M12.8 9v2.5M15.5 9v2.5"/></g></svg></span></div>
     </div>
@@ -204,6 +204,7 @@ html, body { background: #000; }
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="weather.js"></script>
 <script src="glass.js"></script>
 <script src="prefs.js"></script>
@@ -556,7 +557,7 @@ html, body { background: #000; }
   }
 
   function renderWeather() {
-    $('wx').textContent = wx ? wx.temp + '° ' + wx.text + ' · Chicago' : '';
+    $('wx').textContent = wx ? wx.temp + '° ' + wx.text + ' · ' + HOME_CONFIG.city : '';
     var f = $('forecast');
     f.innerHTML = '';
     (wx && wx.days || []).slice(0, 3).forEach(function (d) {

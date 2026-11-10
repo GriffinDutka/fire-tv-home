@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="guard_description">Opens Griffin Home whenever Amazon\'s home screen appears. Also draws the volume bar. Turn off to use Amazon\'s home.</string>
+    <!-- Defaults. build.sh overlays these with the app name from config/home.env. -->
+    <string name="app_name">Home</string>
+    <string name="guard_label">Home guard</string>
+    <string name="guard_description">Opens this home screen whenever Amazon\'s home screen appears. Also draws the volume bar. Turn off to use Amazon\'s home.</string>
 </resources>

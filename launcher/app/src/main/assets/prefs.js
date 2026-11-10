@@ -22,11 +22,11 @@
     clock24: false, wifi: true, greetCal: true, greetCountdown: true, textSize: 'Default',
     picTopics: {}, picEvery: '15 minutes', picShuffle: true, picPick: null,
     saverAfter: '10 minutes', clockStyle: 'Glass', svWeather: true, svCal: true, svNews: true, gargantua: false,
-    news: { 'Tech': true, 'AI': true, 'Sci-fi shows': true, 'Gaming': true, 'Steam': true, 'Chicago': true },
+    news: { 'Tech': true, 'AI': true, 'Sci-fi shows': true, 'Gaming': true, 'Steam': true },
     newsEvery: '8 seconds',
     calHome: true,
     cals: { personal: true, health: true, errands: true, sports: true, holidays: true },
-    units: '°F'
+    units: (window.HOME_CONFIG && HOME_CONFIG.units) || '°F'
   };
 
   function load() {

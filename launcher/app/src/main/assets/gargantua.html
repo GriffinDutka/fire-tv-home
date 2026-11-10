@@ -130,6 +130,7 @@ void main() {
 }
 </script>
 
+<script src="config.js"></script>
 <script src="weather.js"></script>
 <script src="prefs.js"></script>
 <script>
@@ -347,14 +348,16 @@ void main() {
     return DAYS[now.getDay()] + ' ' + MONS[now.getMonth()] + ' ' + (d < 10 ? ' ' : '') + d + ' ' +
       pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds()) + ' ' + tz(now) + ' ' + now.getFullYear();
   }
-  function prompt(cmd) { return '<span class="p">griffin@firetv</span><span class="d">:~$</span> ' + cmd; }
+  var C = window.HOME_CONFIG;
+  var USER = (C.name || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'home';
+  function prompt(cmd) { return '<span class="p">' + USER + '@firetv</span><span class="d">:~$</span> ' + cmd; }
 
   function render() {
     var now = new Date();
-    var lines = [prompt('date'), '<span class="h">' + unixDate(now) + '</span>', prompt('weather chicago')];
+    var lines = [prompt('date'), '<span class="h">' + unixDate(now) + '</span>', prompt('weather ' + esc(C.city.toLowerCase()))];
     if (wx) {
-      lines.push('<span class="h">Chicago, IL</span>  ' + wx.temp + units + '  ' + esc(wx.text) + '  <span class="d">feels ' + wx.feels + '°</span>');
-      lines.push('<span class="d">hi</span> ' + wx.hi + '°  <span class="d">lo</span> ' + wx.lo + '°  <span class="d">wind</span> ' + wx.wind + ' mph ' + wx.windDir + '  <span class="d">hum</span> ' + wx.humidity + '%');
+      lines.push('<span class="h">' + esc(C.place) + '</span>  ' + wx.temp + units + '  ' + esc(wx.text) + '  <span class="d">feels ' + wx.feels + '°</span>');
+      lines.push('<span class="d">hi</span> ' + wx.hi + '°  <span class="d">lo</span> ' + wx.lo + '°  <span class="d">wind</span> ' + wx.wind + ' ' + weather.speed(units) + ' ' + wx.windDir + '  <span class="d">hum</span> ' + wx.humidity + '%');
       lines.push('<span class="d">sunrise</span> ' + wx.sunrise + '  <span class="d">sunset</span> ' + wx.sunset);
     } else {
       lines.push('<span class="d">fetching…</span>');
@@ -372,7 +375,7 @@ void main() {
     term.style.transform = 'translate(' + Math.round(Math.random() * 3 - 1.5) + 'vw,' + Math.round(-Math.random() * 3) + 'vh)';
   }
 
-  var units = window.settings ? settings.load().units : '°F';
+  var units = window.settings ? settings.load().units : C.units;
   function refreshWeather() { weather.get(function (w) { wx = w; render(); }, units); }
 
   nextMode();

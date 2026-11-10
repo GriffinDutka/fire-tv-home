@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Shared config. Override the TV address with: TV=10.0.0.x:5555 ./scripts/whatever.sh
+# Shared helpers. Settings come from config/home.env (see scripts/setup.sh).
+# Override the TV address for one run with: TV=192.168.1.50:5555 ./scripts/whatever.sh
 set -euo pipefail
 
-TV="${TV:-10.0.0.116:5555}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT/scripts/config.sh"
 
 adb_tv() { adb -s "$TV" "$@"; }
 
 ensure_connected() {
+  need_config TV
+  [[ "$TV" == *:* ]] || TV="$TV:5555"
   adb connect "$TV" >/dev/null 2>&1 || true
   local state
   state="$(adb -s "$TV" get-state 2>/dev/null || true)"

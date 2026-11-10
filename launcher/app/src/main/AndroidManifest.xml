@@ -13,14 +13,14 @@
     <!-- HomeGuard reads Fire OS's start of Amazon's home from the system log to catch the Home button
          early; granted over ADB by install-launcher.sh. -->
     <uses-permission android:name="android.permission.READ_LOGS" />
-    <!-- Chicago weather (Open-Meteo) on the home screen and screensaver. -->
+    <!-- Weather (Open-Meteo) on the home screen and screensaver. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Wi-Fi strength next to the clock. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
-        android:label="Griffin Home"
+        android:label="@string/app_name"
         android:icon="@drawable/icon"
         android:banner="@drawable/banner"
         android:allowBackup="false"
@@ -56,7 +56,7 @@
              screen and swaps in ours. Disable it to get Amazon's home back. -->
         <service
             android:name=".HomeGuard"
-            android:label="Griffin Home guard"
+            android:label="@string/guard_label"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

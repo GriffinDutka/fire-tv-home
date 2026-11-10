@@ -8,8 +8,7 @@
     { name: 'AI', color: '#BF5AF2', sub: 'The Verge AI, MIT Technology Review' },
     { name: 'Sci-fi shows', color: '#64D2FF', sub: 'Gizmodo, Den of Geek' },
     { name: 'Gaming', color: '#30D158', sub: 'Polygon, IGN' },
-    { name: 'Steam', color: '#C7D5E0', sub: 'Wishlist sales, top sellers' },
-    { name: 'Chicago', color: '#FF453A', sub: 'Block Club, Sun-Times, WBEZ' }
+    { name: 'Steam', color: '#C7D5E0', sub: 'Wishlist sales, top sellers' }
   ];
 
   // Example headlines until live feeds exist.
@@ -18,9 +17,15 @@
     'AI': ['Example headline: New open model runs fully on a laptop'],
     'Sci-fi shows': ['Example headline: A space drama gets a second season and a new trailer'],
     'Gaming': ['Example headline: A surprise indie hit tops this week’s charts'],
-    'Steam': ['Example: A city-builder you wishlisted is 60% off until Thursday'],
-    'Chicago': ['Example headline: Lakefront Trail reopens after weekend repairs']
+    'Steam': ['Example: A city-builder you wishlisted is 60% off until Thursday']
   };
+
+  // The owner's local news (config/home.env), last.
+  var L0 = window.HOME_CONFIG && HOME_CONFIG.localNews;
+  if (L0 && L0.feeds && L0.feeds.length) {
+    TOPICS.push({ name: L0.name, color: '#FF453A', sub: L0.sub || 'Local headlines' });
+    SAMPLE[L0.name] = ['Example headline: The trail by the river reopens after weekend repairs'];
+  }
 
   // LIVE DATA SEAM (phase 7): set window.liveData.headlines = {'Tech': ['…', …], 'Steam': [...], …}
   // (newest first, up to 5 per topic; topic names as in TOPICS). A topic missing there keeps its sample.

@@ -4,6 +4,7 @@
 //   settingsScreen.open() / isOpen() / key(k)
 (function () {
   var A = window.Android || null;
+  var C = window.HOME_CONFIG;
   function $(id) { return document.getElementById(id); }
   var stage = $('stage');
   var prefs = settings.load();
@@ -120,7 +121,7 @@
       return rows;
     } },
     { name: 'Weather', color: '#5AC8FA', lede: 'From Open-Meteo. No account needed.', rows: function () { return [
-      act('Location', null, 'Chicago, IL', function () { toast('Location is set from the Mac for now'); }),
+      act('Location', null, C.place, function () { toast('Location is set from the Mac: ./scripts/setup.sh'); }),
       cho('Units', null, ['°F', '°C'], pref('units'), function (v) { prefs.units = v; savePrefs(); home.refreshWeather(); })
     ]; } },
     { name: 'Network', color: '#30D158', lede: 'Your connection.', rows: function () {
@@ -134,21 +135,21 @@
     { name: 'TV & system', color: '#8E8E93', lede: 'Fire OS, the home guard and cleanup. Everything here is reversible.', rows: function () { return [
       tog('Home guard', 'The Home button comes here instead of Amazon’s home', function () { return A ? A.guardOn() : true; }, function (v) {
         if (!(A && A.setGuardOn(v))) toast('Not allowed: re-run ./scripts/install-launcher.sh');
-        else if (!v) toast('Off: open Griffin Home from Your Apps to turn it back on');
+        else if (!v) toast('Off: open ' + C.appName + ' from Your Apps to turn it back on');
       }),
       cho('Animation speed', null, ['0.5x', '1.0x', 'Off'], anim, function (v) {
         if (!(A && A.setAnim({ '0.5x': 0.5, '1.0x': 1, 'Off': 0 }[v]))) toast('Not allowed: re-run ./scripts/install-launcher.sh');
       }),
-      act('Ads & tracking', '17 Amazon apps disabled · 3 protected by Fire OS', 'Cleaned', function () { toast('Managed from the Mac: scripts/debloat.sh'); }),
+      act('Ads & tracking', 'Amazon’s tracking and ad apps', 'Mac', function () { toast('Managed from the Mac: scripts/debloat.sh'); }),
       act('TV settings', 'Display, inputs, sound', '›', function () { if (A) A.tvSettings(); }),
       act('Amazon home', 'Until you press Home: inputs, app library', '›', function () { if (A) A.amazonHome(); }),
       act('Restore everything', 'Re-enable apps, stock animations, Amazon home', 'Mac', function () { toast('Run ./scripts/restore.sh on your Mac'); })
     ]; } },
-    { name: 'About', color: '#C7C7CC', lede: 'Griffin Home on your TCL 55S450F.', rows: function () { return [
-      act('Griffin Home', null, A && A.version ? A.version() : 'Browser', function () {}),
-      act('Fire OS', null, '7.7.1.7', function () {}),
-      act('TV', null, 'TCL 55S450F', function () {})
-    ]; } }
+    { name: 'About', color: '#C7C7CC', lede: C.tvModel ? C.appName + ' on your ' + C.tvModel + '.' : 'This home screen’s version.', rows: function () { return [
+      act(C.appName, null, A && A.version ? A.version() : 'Browser', function () {}),
+      C.fireOS ? act('Fire OS', null, C.fireOS, function () {}) : null,
+      C.tvModel ? act('TV', null, C.tvModel, function () {}) : null
+    ].filter(Boolean); } }
   ];
 
   // ---- The picture picker: a grid of every picture on the TV, Rotate first ----

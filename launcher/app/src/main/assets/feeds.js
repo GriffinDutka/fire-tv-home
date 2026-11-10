@@ -11,9 +11,13 @@
     { name: 'AI', color: '#BF5AF2', feeds: ['https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', 'https://www.technologyreview.com/feed/'] },
     { name: 'Sci-fi shows', color: '#64D2FF', feeds: ['https://gizmodo.com/io9/feed', 'https://www.denofgeek.com/tv/feed/'] },
     { name: 'Gaming', color: '#30D158', feeds: ['https://www.polygon.com/feed/', 'https://www.ign.com/rss/articles/feed'] },
-    { name: 'Steam', color: '#C7D5E0', feeds: [] },
-    { name: 'Chicago', color: '#FF453A', feeds: ['https://blockclubchicago.org/feed/', 'https://chicago.suntimes.com/rss/index.xml', 'https://www.wbez.org/rss/index.xml'] }
+    { name: 'Steam', color: '#C7D5E0', feeds: [] }
   ];
+  // The owner's local news, from config/home.env (LOCAL_NEWS_*), last in the rotation.
+  var C = typeof HOME_CONFIG !== 'undefined' ? HOME_CONFIG : {};
+  if (C.localNews && C.localNews.feeds && C.localNews.feeds.length) {
+    TOPICS.push({ name: C.localNews.name, color: '#FF453A', feeds: C.localNews.feeds });
+  }
 
   var hasDom = typeof DOMParser !== 'undefined';
 

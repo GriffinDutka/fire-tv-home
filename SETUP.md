@@ -38,13 +38,13 @@ step (backup, faster animations, turning off Amazon's tracking and ads, the home
 calendars and screensaver media). Run it again any time to change an answer; Enter keeps the
 current one.
 
-## Option C: by hand
+## Option B: by hand
 
 Copy `config/home.example.env` to `config/home.env` and fill it in. For calendars, copy
 `config/calendars.example.txt` to `config/calendars.txt`. Then run the install steps in the table
 below.
 
-## Option B: let Claude Code do it
+## Option C: let Claude Code do it
 
 Open this folder in [Claude Code](https://claude.com/claude-code) and say **"set up my TV"**.
 It follows the steps below.

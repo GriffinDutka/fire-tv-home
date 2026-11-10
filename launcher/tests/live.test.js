@@ -1,6 +1,8 @@
 // live.js end to end with a fake TV: window.Data answers fetches from the fixtures,
 // window.Store is a Map, and the clock is pinned to Mon Oct 26 2026, 8 AM Chicago.
 process.env.TZ = 'America/Chicago';
+// Local news comes from config/home.env on the TV; these tests use a Chicago one.
+globalThis.HOME_CONFIG = { localNews: { name: 'Chicago', sub: 'Block Club, Sun-Times, WBEZ', feeds: ['https://blockclubchicago.org/feed/'] } };
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Griffin Home screensaver</title>
+<title>Screensaver</title>
 <link rel="stylesheet" href="ui.css">
 <style>
 /* Screensaver: the picture sharp, the date, a frosted-glass clock and three glass cards (docs/redesign/SPEC.md §6).
@@ -72,6 +72,7 @@ body.video .cardfrost .fpic { opacity: 0; }
   </div>
 </div>
 
+<script src="config.js"></script>
 <script src="weather.js"></script>
 <script src="glass.js"></script>
 <script src="prefs.js"></script>
@@ -254,8 +255,9 @@ body.video .cardfrost .fpic { opacity: 0; }
   }
   function renderWx() {
     var el = $('svWx');
-    if (!wx) { el.innerHTML = '<div class="city">CHICAGO</div><div class="cond">Weather is on its way</div>'; return lineUpFrost(); }
-    el.innerHTML = '<div class="city">CHICAGO</div><div class="now"></div><div class="cond"></div><div class="hl"></div><div class="days"></div>';
+    if (!wx) { el.innerHTML = '<div class="city"></div><div class="cond">Weather is on its way</div>'; el.firstChild.textContent = HOME_CONFIG.city.toUpperCase(); return lineUpFrost(); }
+    el.innerHTML = '<div class="city"></div><div class="now"></div><div class="cond"></div><div class="hl"></div><div class="days"></div>';
+    el.querySelector('.city').textContent = HOME_CONFIG.city.toUpperCase();
     el.querySelector('.now').textContent = wx.temp + '°';
     el.querySelector('.cond').textContent = title(wx.text);
     el.querySelector('.hl').textContent = 'H:' + wx.hi + '° L:' + wx.lo + '°';

@@ -1,12 +1,16 @@
-// Chicago weather from Open-Meteo (free, no key). Shared by the home screen and the screensaver.
+// Weather for the owner's city (config.js) from Open-Meteo (free, no key). Shared by the home
+// screen and the screensaver.
 // weather.get(cb, units) calls cb(data) right away with anything cached, then again when fresh data lands.
-// units is '°F' (default) or '°C' (Settings → Weather → Units); each is fetched and cached on its own.
+// units is '°F' or '°C' (Settings → Weather → Units; config.js sets the default); each is fetched
+// and cached on its own. °F comes with wind in mph, °C with km/h (weather.speed(units)).
 (function () {
-  var URL = 'https://api.open-meteo.com/v1/forecast?latitude=41.88&longitude=-87.63' +
+  var C = window.HOME_CONFIG;
+  var URL = 'https://api.open-meteo.com/v1/forecast?latitude=' + C.lat + '&longitude=' + C.lon +
     '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,is_day' +
     '&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset' +
-    '&wind_speed_unit=mph&timezone=America%2FChicago&forecast_days=4';
-  var KEY = 'weather.chicago.v2';
+    '&timezone=' + encodeURIComponent(C.tz) + '&forecast_days=4';
+  // Per place, so a new city never shows the old one's weather.
+  var KEY = 'weather.v3.' + C.lat + ',' + C.lon;
   var FRESH_MS = 15 * 60 * 1000;
 
   // WMO weather codes → short words.
@@ -56,12 +60,12 @@
   }
 
   function get(cb, units) {
-    var c2 = units === '°C', key = KEY + (c2 ? '.c' : '');
+    var c2 = (units || C.units) === '°C', key = KEY + (c2 ? '.c' : '');
     var c = cached(key);
     if (c) cb(c);
     if (c && Date.now() - c.at < FRESH_MS) return;
     var x = new XMLHttpRequest();
-    x.open('GET', URL + '&temperature_unit=' + (c2 ? 'celsius' : 'fahrenheit'));
+    x.open('GET', URL + (c2 ? '&temperature_unit=celsius&wind_speed_unit=kmh' : '&temperature_unit=fahrenheit&wind_speed_unit=mph'));
     x.timeout = 10000;
     x.onload = function () {
       if (x.status !== 200) return;
@@ -75,5 +79,7 @@
     x.send();
   }
 
-  window.weather = { get: get };
+  function speed(units) { return (units || C.units) === '°C' ? 'km/h' : 'mph'; }
+
+  window.weather = { get: get, speed: speed };
 })();

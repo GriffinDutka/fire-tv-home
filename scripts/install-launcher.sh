@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build + install Griffin Home, grant it settings access, and turn on the home guard.
+# Build + install the home screen app, grant it settings access, and turn on the home guard.
 # Undo: ./scripts/restore.sh (turns the guard off, uninstalls the app).
 source "$(dirname "$0")/common.sh"
 ensure_connected
@@ -33,4 +33,4 @@ adb_tv shell settings put secure screensaver_components "$PKG/.Gargantua"
 adb_tv shell settings put secure screensaver_enabled 1
 
 adb_tv shell am start -n "$PKG/.MainActivity" >/dev/null
-echo "Griffin Home installed. Guard: $(adb_tv shell settings get secure enabled_accessibility_services)"
+echo "$APP_NAME installed. Guard: $(adb_tv shell settings get secure enabled_accessibility_services)"

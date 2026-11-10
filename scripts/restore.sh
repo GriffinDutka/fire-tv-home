@@ -10,7 +10,7 @@ done
 
 "$ROOT/scripts/animations.sh" 1.0
 
-# Griffin Home: drop the home guard, then uninstall the app.
+# The home screen app: drop the home guard, then uninstall the app.
 GUARD="com.griffin.home/com.griffin.home.HomeGuard"
 current="$(adb_tv shell settings get secure enabled_accessibility_services | tr -d '\r')"
 remaining="$(echo "$current" | tr ':' '\n' | grep -v -x -F "$GUARD" | grep -v -x null | paste -sd: - || true)"

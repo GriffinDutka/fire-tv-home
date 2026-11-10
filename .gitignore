@@ -5,6 +5,8 @@ launcher/build/
 launcher/debug.keystore
 stills/images/
 stills/aerials/
-# Calendar secret addresses (only the example is tracked)
+# Owner settings and calendar secret addresses (only the examples are tracked)
 config/*
 !config/calendars.example.txt
+!config/home.example.env
+.playwright-mcp/

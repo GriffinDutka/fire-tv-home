@@ -10,26 +10,36 @@
   // °C turns the 32°F / 40°F thresholds into 0°C / 4°C.
   function cold(wx, prefs, f, c) { return wx && wx.temp < (prefs && prefs.units === '°C' ? c : f); }
 
+  var C = window.HOME_CONFIG || {};
+
+  // Lines say the owner's name where they show {n}. With no name set, ", {n}" is dropped
+  // and lines that start with the name are skipped.
+  function named(lines) {
+    var n = C.name;
+    return lines.filter(function (s) { return n || s.indexOf('{n}') !== 0; })
+      .map(function (s) { return n ? s.replace('{n}', n) : s.replace(', {n}', ''); });
+  }
+
   function hellos(now, wx, prefs) {
     var hr = now.getHours(), dow = now.getDay(), day = DAYS[dow], mon = now.getMonth();
     var part = hr < 5 ? 'night' : hr < 12 ? 'morning' : hr < 17 ? 'afternoon' : hr < 22 ? 'evening' : 'night';
     var list = {
-      morning: ['Good morning, Griffin', 'Morning, Griffin', 'Rise and shine, Griffin', 'Coffee and a show, Griffin?', 'Easy start today, Griffin?', 'Slow morning, Griffin?', 'Early start, Griffin?', 'Morning light, Griffin'],
-      afternoon: ['Good afternoon, Griffin', 'Afternoon, Griffin', 'Back at it, Griffin', 'Taking a break, Griffin?', 'Midday reset, Griffin?', 'How’s the day going, Griffin?', 'Afternoon off, Griffin?', 'Long day, Griffin?'],
-      evening: ['Good evening, Griffin', 'Evening, Griffin', 'What are we watching, Griffin?', 'How was your day, Griffin?', 'Time to unwind, Griffin', 'Settle in, Griffin', 'Lights down, Griffin', 'Dinner and a show, Griffin?', 'Movie night, Griffin?', 'Feet up, Griffin'],
-      night: ['Up late, Griffin?', 'Hey there, night owl', 'One more episode, Griffin?', 'Can’t sleep, Griffin?', 'Burning the midnight oil, Griffin?', 'Late show, Griffin?', 'Still up, Griffin?', 'Quiet hours, Griffin', 'Midnight movie, Griffin?']
-    }[part].concat(['Welcome back, Griffin', 'Hey, Griffin', 'Good to see you, Griffin', 'Griffin returns', 'Happy ' + day + ', Griffin',
-      'Make yourself at home, Griffin', 'Pick something good, Griffin', 'There you are, Griffin', 'All yours, Griffin', 'What’s it going to be, Griffin?']);
-    if (dow === 1) list.push('Monday again, Griffin', 'New week, Griffin');
-    if (dow === 5) list.push('Made it to Friday, Griffin', hr >= 17 ? 'Friday night, Griffin' : 'Almost the weekend, Griffin');
-    if (dow === 6 || dow === 0) list.push('Weekend mode, Griffin', 'Lazy ' + day + ', Griffin?', 'No alarms today, Griffin?');
-    if (dow === 0) list.push('Sunday reset, Griffin');
-    if (mon === 9) list.push('Spooky season, Griffin');
-    if (mon === 11) list.push('Cozy season, Griffin');
-    if (wx && /rain|drizzle|showers|thunder/.test(wx.text)) list.push('Rainy one, Griffin');
-    if (wx && /snow/.test(wx.text)) list.push('Snow day, Griffin?');
-    if (cold(wx, prefs, 32, 0)) list.push('Stay warm, Griffin');
-    return list;
+      morning: ['Good morning, {n}', 'Morning, {n}', 'Rise and shine, {n}', 'Coffee and a show, {n}?', 'Easy start today, {n}?', 'Slow morning, {n}?', 'Early start, {n}?', 'Morning light, {n}'],
+      afternoon: ['Good afternoon, {n}', 'Afternoon, {n}', 'Back at it, {n}', 'Taking a break, {n}?', 'Midday reset, {n}?', 'How’s the day going, {n}?', 'Afternoon off, {n}?', 'Long day, {n}?'],
+      evening: ['Good evening, {n}', 'Evening, {n}', 'What are we watching, {n}?', 'How was your day, {n}?', 'Time to unwind, {n}', 'Settle in, {n}', 'Lights down, {n}', 'Dinner and a show, {n}?', 'Movie night, {n}?', 'Feet up, {n}'],
+      night: ['Up late, {n}?', 'Hey there, night owl', 'One more episode, {n}?', 'Can’t sleep, {n}?', 'Burning the midnight oil, {n}?', 'Late show, {n}?', 'Still up, {n}?', 'Quiet hours, {n}', 'Midnight movie, {n}?']
+    }[part].concat(['Welcome back, {n}', 'Hey, {n}', 'Good to see you, {n}', '{n} returns', 'Happy ' + day + ', {n}',
+      'Make yourself at home, {n}', 'Pick something good, {n}', 'There you are, {n}', 'All yours, {n}', 'What’s it going to be, {n}?']);
+    if (dow === 1) list.push('Monday again, {n}', 'New week, {n}');
+    if (dow === 5) list.push('Made it to Friday, {n}', hr >= 17 ? 'Friday night, {n}' : 'Almost the weekend, {n}');
+    if (dow === 6 || dow === 0) list.push('Weekend mode, {n}', 'Lazy ' + day + ', {n}?', 'No alarms today, {n}?');
+    if (dow === 0) list.push('Sunday reset, {n}');
+    if (mon === 9) list.push('Spooky season, {n}');
+    if (mon === 11) list.push('Cozy season, {n}');
+    if (wx && /rain|drizzle|showers|thunder/.test(wx.text)) list.push('Rainy one, {n}');
+    if (wx && /snow/.test(wx.text)) list.push('Snow day, {n}?');
+    if (cold(wx, prefs, 32, 0)) list.push('Stay warm, {n}');
+    return named(list);
   }
 
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
@@ -53,7 +63,7 @@
     var hr = now.getHours(), min = now.getMinutes(), dow = now.getDay(), mon = now.getMonth();
     var h24 = prefs.clock24, time = fmt.time(now, h24), out = [];
     if (wx) {
-      out.push(wx.temp + '° and ' + wx.text + ' in Chicago');
+      out.push(wx.temp + '° and ' + wx.text + (C.city ? ' in ' + C.city : ' out there'));
       var tmr = wx.days && wx.days[0] ? wx.days[0].text : '';
       if (/rain|snow|drizzle|showers|thunder/.test(tmr)) out.push(cap(tmr) + ' tomorrow. Good couch weather.');
       if (cold(wx, prefs, 40, 4)) out.push('Bundle up out there');
@@ -72,7 +82,7 @@
     if (dow === 0) out.push('One more episode before Monday');
     if (mon === 9) out.push('Scary movie season');
     if (mon === 11) out.push('Peak holiday movie season');
-    if (mon >= 5 && mon <= 7) out.push('Summer nights in Chicago');
+    if (mon >= 5 && mon <= 7) out.push(C.city ? 'Summer nights in ' + C.city : 'Summer nights');
     // Calendar: the next timed event, if it's soon. Counted twice.
     if (prefs.greetCal !== false && window.calendar) {
       var next = calendar.events(now, prefs).filter(function (e) { return !e.allDay && e.start > now; })[0];

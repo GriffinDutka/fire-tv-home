@@ -1,6 +1,8 @@
 // RSS/Atom parsing and the Steam lines. Node has no DOMParser, so this runs feeds.js's regex
 // reader (also its fallback for broken XML); the TV's WebView takes the DOMParser path.
 process.env.TZ = 'America/Chicago';
+// Local news comes from config/home.env on the TV; these tests use a Chicago one.
+globalThis.HOME_CONFIG = { localNews: { name: 'Chicago', sub: 'Block Club, Sun-Times, WBEZ', feeds: ['https://blockclubchicago.org/feed/'] } };
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

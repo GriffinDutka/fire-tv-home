@@ -58,6 +58,10 @@ public class HomeGuard extends AccessibilityService {
     // Once Home has drawn; or, should that word never come (the page still loading), this long after it resumed.
     private static final long UNCOVER_DELAY_MS = 100;
     private static final long UNCOVER_FALLBACK_MS = 1500;
+    // And not until this long after the last press: Fire OS can log a press ~400ms late, so with the
+    // cover already down, a quick next press showed Amazon's home (or black) before we knew of it.
+    // Kept up over Home instead, that press lands under it; any other key drops it at once.
+    private static final long HOLD_AFTER_PRESS_MS = 1200;
     private static final long RETRY_MS = 1500;
     private static final long GIVE_UP_MS = 20000;
     private static final long LOGCAT_RESTART_MS = 10000;
@@ -74,7 +78,7 @@ public class HomeGuard extends AccessibilityService {
     private ImageView cover;
     private Bitmap coverShows;
     private volatile boolean covering;
-    private long coveredAt, shownAt;
+    private volatile long coveredAt, shownAt;
     private VolumeIsland volume;
     private final Runnable removeCover = this::removeCover;
     private final Runnable uncover = this::uncover;
@@ -256,12 +260,27 @@ public class HomeGuard extends AccessibilityService {
      * presses, word that Home had drawn could arrive after the next press and bare that one.
      */
     private void uncover() {
-        if (shownAt > coveredAt && MainActivity.inFront()) removeCover();
+        if (!homeBack()) return;
+        long wait = coveredAt + HOLD_AFTER_PRESS_MS - SystemClock.uptimeMillis();
+        if (wait > 0) guard.postDelayed(uncover, wait);
+        else removeCover();
+    }
+
+    /** The cover now sits over Griffin Home itself, not Amazon's. */
+    private boolean homeBack() {
+        return shownAt > coveredAt && MainActivity.inFront();
     }
 
     @Override
     protected boolean onKeyEvent(KeyEvent event) {
-        if (covering) return true; // covering Amazon's home: don't let presses reach it
+        if (covering) {
+            // Only holding on over Home after a press: let the key through and show Home for it.
+            if (event.getKeyCode() != KeyEvent.KEYCODE_HOME && homeBack()) {
+                guard.post(removeCover);
+                return false;
+            }
+            return true; // covering Amazon's home: don't let presses reach it
+        }
         if (event.getKeyCode() != KeyEvent.KEYCODE_HOME || Prefs.isPaused(this)) return false;
         if (event.getAction() == KeyEvent.ACTION_UP) openHome();
         return true;
@@ -352,6 +371,8 @@ public class HomeGuard extends AccessibilityService {
         guard.removeCallbacks(uncover);
         guard.removeCallbacks(removeCover);
         guard.postDelayed(removeCover, COVER_TIMEOUT_MS);
+        // Every press, so the cover waits for Home to come back from this one and holds on after it.
+        coveredAt = SystemClock.uptimeMillis();
         if (covering || !addCoverWindow()) return;
         if (snapshot != null && snapshot != coverShows) {
             cover.setImageBitmap(snapshot);
@@ -359,7 +380,6 @@ public class HomeGuard extends AccessibilityService {
         }
         cover.setAlpha(1f);
         covering = true;
-        coveredAt = SystemClock.uptimeMillis();
     }
 
     private void removeCover() {
